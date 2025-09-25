@@ -1,0 +1,34 @@
+<div
+  class="board"
+  role="grid"
+  aria-label="Sudoku board"
+  tabindex="0"
+  (click)="focusBoard()"
+  #boardRoot
+>
+  @for(r of rows; track $index; let ri = $index) {
+  <div
+    class="row"
+    role="row"
+  >
+    @for(c of cols; track $index; let ci = $index) {
+    <button
+      class="cell"
+      role="gridcell"
+      [disabled]="isGiven(ri,ci) && !store.editingGivenMode()"
+      [ngClass]="cellClasses(ri,ci)"
+      (click)="onCellClick(ri,ci)"
+      [attr.aria-selected]="isSelected(ri,ci)"
+    >
+      <span class="val">{{ cellValue(ri,ci) }}</span>
+    </button>
+    }
+  </div>
+
+  }
+</div>
+<div class="legend">
+  <span class="chip chip-given">Given</span>
+  <span class="chip chip-user">User</span>
+  <span class="chip chip-selected">Selected</span>
+</div>

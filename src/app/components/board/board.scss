@@ -1,0 +1,91 @@
+ .board {
+   display: inline-block;
+   outline: none;
+   user-select: none;
+   border: 2px solid rgba(0, 0, 0, .6);
+ }
+
+ .row {
+   display: flex;
+ }
+
+ .cell {
+   width: 56px;
+   aspect-ratio: 1 / 1;
+   padding: 0;
+   border: 1px solid rgba(0, 0, 0, .25);
+   background: white;
+   cursor: pointer;
+   display: grid;
+   place-items: center;
+   font-size: 22px;
+   line-height: 1;
+ }
+
+ .cell .val {
+   font-weight: 400;
+ }
+
+ /* Thick borders for 3x3 boxes */
+ .row:nth-child(3n+1) .cell {
+   border-top-width: 2px;
+ }
+
+ .row .cell:nth-child(3n+1) {
+   border-left-width: 2px;
+ }
+
+ .row:nth-child(9) .cell {
+   border-bottom-width: 2px;
+ }
+
+ .row .cell:nth-child(9) {
+   border-right-width: 2px;
+ }
+
+ /* Given vs user styling */
+ .cell.given .val {
+   font-weight: 700;
+   color: rgba(0, 0, 0, .87);
+ }
+
+ .cell.user .val {
+   color: var(--mat-mdc-slide-toggle-selected-handle-color, #3f51b5);
+ }
+
+ /* Selected */
+ .cell.selected {
+   outline: 2px solid rgba(25, 118, 210, .9);
+   outline-offset: -2px;
+ }
+
+ /* Disabled (given while in user mode) */
+ .cell:disabled {
+   background: #fafafa;
+   cursor: default;
+ }
+
+ .legend {
+   margin-top: 12px;
+   display: flex;
+   gap: 8px;
+ }
+
+ .chip {
+   padding: 2px 8px;
+   border-radius: 12px;
+   border: 1px solid rgba(0, 0, 0, .2);
+   font-size: 12px;
+ }
+
+ .chip-given {
+   font-weight: 700;
+ }
+
+ .chip-user {
+   color: var(--mat-mdc-slide-toggle-selected-handle-color, #3f51b5);
+ }
+
+ .chip-selected {
+   border-color: rgba(25, 118, 210, .9);
+ }

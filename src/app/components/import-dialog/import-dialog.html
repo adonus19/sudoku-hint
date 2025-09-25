@@ -1,0 +1,36 @@
+<h2 mat-dialog-title>Import Puzzle</h2>
+<div
+  mat-dialog-content
+  class="content"
+>
+  <p>Paste exactly 81 characters. Use digits 1–9, and 0 or . for blanks.</p>
+  <mat-form-field
+    appearance="outline"
+    class="full"
+  >
+    <mat-label>81-character puzzle</mat-label>
+    <textarea
+      matInput
+      [formControl]="input"
+      rows="4"
+      cdkFocusInitial
+    ></textarea>
+    <mat-hint align="end">{{ length() }}/81</mat-hint>
+    <mat-error *ngIf="error">{{ error() }}</mat-error>
+  </mat-form-field>
+</div>
+<div
+  mat-dialog-actions
+  align="end"
+>
+  <button
+    mat-button
+    mat-dialog-close
+  >Cancel</button>
+  <button
+    mat-flat-button
+    color="primary"
+    (click)="doImport()"
+    [disabled]="!!error"
+  >Import</button>
+</div>
