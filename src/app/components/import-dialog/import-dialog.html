@@ -16,7 +16,9 @@
       cdkFocusInitial
     ></textarea>
     <mat-hint align="end">{{ length() }}/81</mat-hint>
-    <mat-error *ngIf="error">{{ error() }}</mat-error>
+    @if(error()) {
+    <mat-error>{{ error() }}</mat-error>
+    }
   </mat-form-field>
 </div>
 <div

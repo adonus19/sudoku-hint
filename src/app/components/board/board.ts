@@ -2,6 +2,8 @@ import { Component, effect, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SudokuStore } from '../../data/sudoku.store';
 
+type Coord = { r: number; c: number };
+
 @Component({
   selector: 'app-board',
   imports: [CommonModule],
@@ -15,6 +17,7 @@ export class Board {
 
   // Keep a local focus state to aid keyboard nav
   private hasFocus = signal<boolean>(false);
+  private hovered: ReturnType<typeof signal<Coord | null>> = signal<Coord | null>(null);
 
   constructor() {
     // ensure a default selection for keyboard input
@@ -42,20 +45,77 @@ export class Board {
     return v ? v : '';
   }
 
-  cellClasses(r: number, c: number) {
+  ariaLabel(r: number, c: number) {
     const cell = this.store.board()[r][c];
+    const base = `Row ${r + 1} Column ${c + 1}`;
+    if (cell.value) return `${base}, value ${cell.value}${cell.given ? ', given' : ''}`;
+    return `${base}, empty`;
+  }
+
+  private activeContext() {
+    // why: selection dominates; else hover if hovering a non-empty cell for quick glance
+    const sel = this.store.selected();
+    const hov = this.hovered();
+    const board = this.store.board();
+    if (sel) {
+      const v = board[sel.r][sel.c].value || null;
+      const box = board[sel.r][sel.c].box;
+      return { coord: sel, value: v, box };
+    }
+    if (hov) {
+      const v = board[hov.r][hov.c].value || null;
+      const box = board[hov.r][hov.c].box;
+      return { coord: hov, value: v, box };
+    }
+    return { coord: null as Coord | null, value: null as number | null, box: null as number | null };
+  }
+
+  cellClasses(r: number, c: number) {
+    const board = this.store.board();
+    const cell = board[r][c];
     const selected = this.isSelected(r, c);
     const isUser = !!cell.value && !cell.given;
+
+    const ctx = this.activeContext();
+    const hlRow = !!ctx.coord && ctx.coord.r === r;
+    const hlCol = !!ctx.coord && ctx.coord.c === c;
+    const hlBox = !!ctx.coord && ctx.box === cell.box;
+
+    // matches (value)
+    let match = false;
+    let matchCand = false;
+    if (ctx.value) {
+      match = cell.value === ctx.value;
+      // future: candidates contain the digit
+      if (!match && cell.value === 0 && cell.candidates && cell.candidates.has(ctx.value)) {
+        matchCand = true;
+      }
+    }
+
+    // conflicts
+    const key = `${r},${c}`;
+    const conflict = this.store.conflicts().cells.has(key);
+
     return {
       given: !!cell.value && cell.given,
       user: isUser,
-      selected
+      selected,
+      'hl-row': hlRow,
+      'hl-col': hlCol,
+      'hl-box': hlBox,
+      match,
+      'match-cand': matchCand,
+      conflict
     };
   }
 
   onCellClick(r: number, c: number) {
     this.store.select(r, c);
     this.hasFocus.set(true);
+  }
+
+  onHover(r: number, c: number, enter: boolean) {
+    this.hovered.set(enter ? { r, c } : null);
   }
 
   @HostListener('keydown', ['$event'])

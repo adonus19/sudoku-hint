@@ -19,6 +19,9 @@
       [ngClass]="cellClasses(ri,ci)"
       (click)="onCellClick(ri,ci)"
       [attr.aria-selected]="isSelected(ri,ci)"
+      [attr.aria-label]="ariaLabel(ri,ci)"
+      (mouseenter)="onHover(ri,ci,true)"
+      (mouseleave)="onHover(ri,ci,false)"
     >
       <span class="val">{{ cellValue(ri,ci) }}</span>
     </button>
@@ -31,4 +34,7 @@
   <span class="chip chip-given">Given</span>
   <span class="chip chip-user">User</span>
   <span class="chip chip-selected">Selected</span>
+  <span class="chip chip-hl">Row/Col/Box</span>
+  <span class="chip chip-match">Matches</span>
+  <span class="chip chip-conflict">Conflict</span>
 </div>
