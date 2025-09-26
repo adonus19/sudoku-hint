@@ -4,6 +4,15 @@
 
   <button
     mat-button
+    (click)="openHint()"
+    aria-label="Get a hint"
+  >
+    <mat-icon>lightbulb</mat-icon>
+    Hint
+  </button>
+
+  <button
+    mat-button
     (click)="openImport()"
     aria-label="Import 81-char puzzle"
   >

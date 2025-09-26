@@ -1,5 +1,5 @@
 import { Board, Cell, Digit } from './sudoku.types';
-import { SIZE, BOX, DIGITS, toBoxIndex, keyOf } from './sudoku.constants';
+import { SIZE, BOX, DIGITS, toBoxIndex } from './sudoku.constants';
 
 export function createEmptyBoard(): Board {
   const rows: Cell[][] = [];
@@ -95,4 +95,33 @@ export function parseBoardString(str: string): Board {
     };
   }
   return board;
+}
+
+// --- Candidates ---
+export function computeCandidates(board: Board): Board {
+  const next = cloneBoard(board);
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = next[r][c];
+      if (cell.value) { cell.candidates = new Set(); continue; }
+      const used = usedDigits(board, r, c);
+      const cand = new Set<number>();
+      for (const d of DIGITS) if (!used.has(d)) cand.add(d);
+      cell.candidates = cand;
+    }
+  }
+  return next;
+}
+
+function usedDigits(board: Board, r: number, c: number): Set<number> {
+  const out = new Set<number>();
+  for (let cc = 0; cc < 9; cc++) { const v = board[r][cc].value; if (v) out.add(v); }
+  for (let rr = 0; rr < 9; rr++) { const v = board[rr][c].value; if (v) out.add(v); }
+  const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+  for (let rr = br; rr < br + 3; rr++) {
+    for (let cc = bc; cc < bc + 3; cc++) {
+      const v = board[rr][cc].value; if (v) out.add(v);
+    }
+  }
+  return out;
 }

@@ -1,18 +1,25 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { Board, Digit, Coord } from './sudoku.types';
-import { createEmptyBoard, setValue, clearValue, detectConflicts } from './sudoku.utils';
-import { parseBoardString } from './sudoku.utils';
+import { createEmptyBoard, setValue, clearValue, detectConflicts, parseBoardString, computeCandidates } from './sudoku.utils';
+import { HintHighlight } from '../hint/hint.types';
+import { HintResult } from '../hint/hint.types';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class SudokuStore {
   // Signals
   private _board = signal<Board>(createEmptyBoard());
   private _selected = signal<Coord | null>(null);
-  private _editingGivenMode = signal<boolean>(true); // why: distinguish initial givens vs user entries
+  private _editingGivenMode = signal<boolean>(true);
+
+  // Hint highlights
+  private _hl = signal<HintHighlight | null>(null);
 
   board = this._board.asReadonly();
   selected = this._selected.asReadonly();
   editingGivenMode = this._editingGivenMode.asReadonly();
+  highlight = this._hl.asReadonly();
 
   conflicts = computed(() => detectConflicts(this._board()));
 
@@ -20,22 +27,17 @@ export class SudokuStore {
     this._board.set(createEmptyBoard());
     this._selected.set(null);
     this._editingGivenMode.set(true);
+    this._hl.set(null);
   }
 
-  toggleEditingGivenMode() {
-    this._editingGivenMode.update(v => !v);
-  }
+  toggleEditingGivenMode() { this._editingGivenMode.update(v => !v); }
 
-  select(r: number, c: number) {
-    this._selected.set({ r, c });
-  }
+  select(r: number, c: number) { this._selected.set({ r, c }); }
 
   setCellValue(r: number, c: number, value: Digit, opts?: { asGiven?: boolean }) {
     const asGiven = opts?.asGiven ?? this._editingGivenMode();
-    // why: protect givens when not in initial-entry mode
     const current = this._board()[r][c];
     if (current.given && !asGiven) return;
-
     this._board.update(b => setValue(b, r, c, value, asGiven));
     this.recomputeCandidates();
   }
@@ -51,11 +53,25 @@ export class SudokuStore {
     const next = parseBoardString(s);
     this._board.set(next);
     this._selected.set({ r: 0, c: 0 });
-    this._editingGivenMode.set(false); // switch to user mode after import
+    this._editingGivenMode.set(false);
+    this.recomputeCandidates();
   }
 
-  // Placeholder: will implement pencil marks in Step 4
   recomputeCandidates() {
-    // no-op for Step 1
+    this._board.update(b => computeCandidates(b));
+  }
+
+  // --- Hint highlight control ---
+  setHighlights(h: HintHighlight | null) { this._hl.set(h); }
+  clearHighlights() { this._hl.set(null); }
+
+  // Apply hint result and refresh
+  applyHint(h: HintResult) {
+    console.log(h);
+    this._board.update(b => h.apply(b));
+    this.recomputeCandidates();
+    this._hl.set(null);
+    // keep selection on target for continuity
+    this._selected.set({ r: h.target.r, c: h.target.c });
   }
 }

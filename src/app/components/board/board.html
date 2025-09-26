@@ -1,35 +1,65 @@
-<div
-  class="board"
-  role="grid"
-  aria-label="Sudoku board"
-  tabindex="0"
-  (click)="focusBoard()"
-  #boardRoot
->
-  @for(r of rows; track $index; let ri = $index) {
-  <div
-    class="row"
-    role="row"
-  >
-    @for(c of cols; track $index; let ci = $index) {
-    <button
-      class="cell"
-      role="gridcell"
-      [disabled]="isGiven(ri,ci) && !store.editingGivenMode()"
-      [ngClass]="cellClasses(ri,ci)"
-      (click)="onCellClick(ri,ci)"
-      [attr.aria-selected]="isSelected(ri,ci)"
-      [attr.aria-label]="ariaLabel(ri,ci)"
-      (mouseenter)="onHover(ri,ci,true)"
-      (mouseleave)="onHover(ri,ci,false)"
-    >
-      <span class="val">{{ cellValue(ri,ci) }}</span>
-    </button>
+<div class="board-wrap">
+  <div class="col-labels">
+    <div class="corner"></div>
+    @for (c of cols; track $index) {
+    <div class="col-label">{{ c+1 }}</div>
     }
   </div>
-
-  }
+  <div class="row">
+    <div class="row-labels">
+      @for (r of rows; track $index) {
+      <div class="row-label">{{ rowLetter(r) }}</div>
+      }
+    </div>
+    <div
+      class="board"
+      role="grid"
+      aria-label="Sudoku board"
+      tabindex="0"
+      (click)="focusBoard()"
+    >
+      @for (r of rows; track $index) {
+      <div
+        class="row"
+        role="row"
+      >
+        @for (c of cols; track $index) {
+        <button
+          class="cell"
+          role="gridcell"
+          [disabled]="isGiven(r,c) && !store.editingGivenMode()"
+          [ngClass]="cellClasses(r,c)"
+          (click)="onCellClick(r,c)"
+          (mouseenter)="onHover(r,c,true)"
+          (mouseleave)="onHover(r,c,false)"
+          [attr.aria-selected]="isSelected(r,c)"
+          [attr.aria-label]="ariaLabel(r,c)"
+        >
+          @if (hasValue(r,c)) {
+          <span class="val">{{ cellValue(r,c) }}</span>
+          } @else {
+          <div
+            class="pencil"
+            aria-hidden="true"
+          >
+            @for (d of digits; track $index) {
+            <span
+              class="p"
+              [class.on]="hasCand(r,c,d)"
+              [class.cand-match]="candMatchesActive(r,c,d)"
+              [class.cand-hint]="candInHint(r,c,d)"
+            >{{ d }}</span>
+            }
+          </div>
+          }
+        </button>
+        }
+      </div>
+      }
+    </div>
+  </div>
 </div>
+
 <div class="legend">
   <span class="chip chip-given">Given</span>
   <span class="chip chip-user">User</span>
@@ -37,4 +67,6 @@
   <span class="chip chip-hl">Row/Col/Box</span>
   <span class="chip chip-match">Matches</span>
   <span class="chip chip-conflict">Conflict</span>
+  <span class="chip chip-pencil">Pencil</span>
+  <span class="chip chip-hint">Hint</span>
 </div>

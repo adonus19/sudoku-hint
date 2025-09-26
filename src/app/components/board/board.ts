@@ -1,8 +1,9 @@
-import { Component, effect, HostListener, inject, signal } from '@angular/core';
+import { Component, effect, HostListener, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SudokuStore } from '../../data/sudoku.store';
 
 type Coord = { r: number; c: number };
+const ROW_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
 @Component({
   selector: 'app-board',
@@ -12,23 +13,30 @@ type Coord = { r: number; c: number };
 })
 export class Board {
   store = inject(SudokuStore);
+
   rows = Array.from({ length: 9 }, (_, i) => i);
   cols = Array.from({ length: 9 }, (_, i) => i);
+  digits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-  // Keep a local focus state to aid keyboard nav
   private hasFocus = signal<boolean>(false);
-  private hovered: ReturnType<typeof signal<Coord | null>> = signal<Coord | null>(null);
+  private hovered = signal<Coord | null>(null);
 
   constructor() {
-    // ensure a default selection for keyboard input
     effect(() => {
-      const sel = this.store.selected();
-      if (!sel) this.store.select(0, 0);
+      if (!this.store.selected()) this.store.select(0, 0);
     });
+  }
+
+  rowLetter(r: number) {
+    return ROW_LETTERS[r];
   }
 
   focusBoard() {
     this.hasFocus.set(true);
+  }
+
+  hasValue(r: number, c: number) {
+    return !!this.store.board()[r][c].value;
   }
 
   isSelected(r: number, c: number) {
@@ -45,15 +53,20 @@ export class Board {
     return v ? v : '';
   }
 
+  hasCand(r: number, c: number, d: number) {
+    return this.store.board()[r][c].candidates?.has(d) ?? false;
+  }
+
   ariaLabel(r: number, c: number) {
     const cell = this.store.board()[r][c];
     const base = `Row ${r + 1} Column ${c + 1}`;
     if (cell.value) return `${base}, value ${cell.value}${cell.given ? ', given' : ''}`;
-    return `${base}, empty`;
+
+    const cands = Array.from(cell.candidates).sort().join(',');
+    return `${base}, empty${cands ? ', candidates ' + cands : ''}`;
   }
 
   private activeContext() {
-    // why: selection dominates; else hover if hovering a non-empty cell for quick glance
     const sel = this.store.selected();
     const hov = this.hovered();
     const board = this.store.board();
@@ -62,12 +75,30 @@ export class Board {
       const box = board[sel.r][sel.c].box;
       return { coord: sel, value: v, box };
     }
+
     if (hov) {
       const v = board[hov.r][hov.c].value || null;
       const box = board[hov.r][hov.c].box;
       return { coord: hov, value: v, box };
     }
-    return { coord: null as Coord | null, value: null as number | null, box: null as number | null };
+
+    return {
+      coord: null as Coord | null,
+      value: null as number | null,
+      box: null as number | null
+    };
+  }
+
+  candMatchesActive(r: number, c: number, d: number): boolean {
+    const ctx = this.activeContext(); if (!ctx.value) return false;
+    const cell = this.store.board()[r][c];
+    return cell.value === 0 && cell.candidates?.has(d) && d === ctx.value;
+  }
+
+  candInHint(r: number, c: number, d: number): boolean {
+    const h = this.store.highlight();
+    if (!h?.candTargets) return false;
+    return h.candTargets.some(x => x.r === r && x.c === c && x.d === d);
   }
 
   cellClasses(r: number, c: number) {
@@ -81,20 +112,18 @@ export class Board {
     const hlCol = !!ctx.coord && ctx.coord.c === c;
     const hlBox = !!ctx.coord && ctx.box === cell.box;
 
-    // matches (value)
     let match = false;
-    let matchCand = false;
     if (ctx.value) {
       match = cell.value === ctx.value;
-      // future: candidates contain the digit
-      if (!match && cell.value === 0 && cell.candidates && cell.candidates.has(ctx.value)) {
-        matchCand = true;
-      }
     }
 
-    // conflicts
-    const key = `${r},${c}`;
-    const conflict = this.store.conflicts().cells.has(key);
+    const conflict = this.store.conflicts().cells.has(`${r},${c}`);
+
+    const h = this.store.highlight();
+    const hintRow = h?.rows?.includes(r) ?? false;
+    const hintCol = h?.cols?.includes(c) ?? false;
+    const hintBox = h?.boxes?.includes(cell.box) ?? false;
+    const hintTarget = (h?.cells || []).some(cc => cc.r === r && cc.c === c);
 
     return {
       given: !!cell.value && cell.given,
@@ -104,8 +133,11 @@ export class Board {
       'hl-col': hlCol,
       'hl-box': hlBox,
       match,
-      'match-cand': matchCand,
-      conflict
+      conflict,
+      'hint-row': hintRow,
+      'hint-col': hintCol,
+      'hint-box': hintBox,
+      'hint-target': hintTarget
     };
   }
 
@@ -121,13 +153,9 @@ export class Board {
   @HostListener('keydown', ['$event'])
   onKeydown(ev: KeyboardEvent) {
     if (!this.hasFocus()) return;
-
-    const sel = this.store.selected();
-    if (!sel) return;
-
+    const sel = this.store.selected(); if (!sel) return;
     const { r, c } = sel;
 
-    // movement
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(ev.key)) {
       ev.preventDefault();
       const next = this.moveSelection(r, c, ev.key, ev.shiftKey);
@@ -135,21 +163,15 @@ export class Board {
       return;
     }
 
-    // input digits
     if (/^[1-9]$/.test(ev.key)) {
       ev.preventDefault();
-      if (!this.isGiven(r, c) || this.store.editingGivenMode()) {
-        this.store.setCellValue(r, c, Number(ev.key) as any);
-      }
+      if (!this.isGiven(r, c) || this.store.editingGivenMode()) this.store.setCellValue(r, c, Number(ev.key) as any);
       return;
     }
 
-    // clear
     if (ev.key === 'Backspace' || ev.key === 'Delete' || ev.key === '0') {
       ev.preventDefault();
-      if (!this.isGiven(r, c) || this.store.editingGivenMode()) {
-        this.store.clearCell(r, c);
-      }
+      if (!this.isGiven(r, c) || this.store.editingGivenMode()) this.store.clearCell(r, c);
       return;
     }
   }
@@ -159,12 +181,17 @@ export class Board {
       const idx = r * 9 + c;
       const dir = shiftTab ? -1 : 1;
       const next = (idx + dir + 81) % 81;
-      return { r: Math.floor(next / 9), c: next % 9 };
+      return {
+        r: Math.floor(next / 9),
+        c: next % 9
+      };
     }
+
     if (key === 'ArrowUp') return { r: (r + 8) % 9, c };
     if (key === 'ArrowDown') return { r: (r + 1) % 9, c };
     if (key === 'ArrowLeft') return { r, c: (c + 8) % 9 };
     if (key === 'ArrowRight') return { r, c: (c + 1) % 9 };
+
     return { r, c };
   }
 }
