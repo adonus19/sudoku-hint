@@ -1,5 +1,5 @@
 import { Board, Cell, Digit } from './sudoku.types';
-import { SIZE, BOX, DIGITS, toBoxIndex } from './sudoku.constants';
+import { SIZE, DIGITS, toBoxIndex } from './sudoku.constants';
 
 export function createEmptyBoard(): Board {
   const rows: Cell[][] = [];
@@ -11,7 +11,8 @@ export function createEmptyBoard(): Board {
         box: toBoxIndex(r, c),
         value: 0,
         given: false,
-        candidates: new Set<number>()
+        candidates: new Set<number>(),
+        suppressed: new Set<number>()
       });
     }
     rows.push(row);
@@ -22,7 +23,8 @@ export function createEmptyBoard(): Board {
 export function cloneBoard(board: Board): Board {
   return board.map(row => row.map(cell => ({
     ...cell,
-    candidates: new Set<number>(cell.candidates)
+    candidates: new Set<number>(cell.candidates),
+    suppressed: new Set<number>(cell.suppressed)
   })));
 }
 
@@ -33,9 +35,9 @@ export function setValue(board: Board, r: number, c: number, value: Digit, asGiv
   next[r][c] = {
     ...cell,
     value,
-    given: asGiven ? true : cell.given, // don't unset once given
-    // candidates cleared on value set
-    candidates: value === 0 ? cell.candidates : new Set<number>()
+    given: asGiven ? true : cell.given,
+    candidates: value === 0 ? cell.candidates : new Set<number>(),
+    suppressed: value === 0 ? cell.suppressed : new Set<number>() // clear on placement
   };
   return next;
 }
@@ -43,27 +45,24 @@ export function setValue(board: Board, r: number, c: number, value: Digit, asGiv
 export function clearValue(board: Board, r: number, c: number): Board {
   const next = cloneBoard(board) as Cell[][];
   const cell = next[r][c];
-  next[r][c] = { ...cell, value: 0, candidates: new Set<number>() };
+  // keep suppressed when clearing so previous eliminations remain
+  next[r][c] = { ...cell, value: 0, candidates: new Set<number>(cell.candidates) };
   return next;
 }
 
 export function detectConflicts(board: Board) {
   // Basic duplicate detection (value > 0). Used for highlight/validation later.
   const rows = new Set<number>(), cols = new Set<number>(), boxes = new Set<number>(), cells = new Set<string>();
-  // why: fast feedback on invalid entries early
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
       const v = board[r][c].value;
       if (!v) continue;
-      // row
       for (let cc = 0; cc < 9; cc++) {
         if (cc !== c && board[r][cc].value === v) { rows.add(r); cells.add(`${r},${c}`); cells.add(`${r},${cc}`); }
       }
-      // col
       for (let rr = 0; rr < 9; rr++) {
         if (rr !== r && board[rr][c].value === v) { cols.add(c); cells.add(`${r},${c}`); cells.add(`${rr},${c}`); }
       }
-      // box
       const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
       for (let rr = br; rr < br + 3; rr++) {
         for (let cc = bc; cc < bc + 3; cc++) {
@@ -91,7 +90,9 @@ export function parseBoardString(str: string): Board {
     board[r][c] = {
       ...board[r][c],
       value: v as Digit,
-      given: true
+      given: true,
+      candidates: new Set<number>(),
+      suppressed: new Set<number>()
     };
   }
   return board;
@@ -104,24 +105,36 @@ export function computeCandidates(board: Board): Board {
     for (let c = 0; c < 9; c++) {
       const cell = next[r][c];
       if (cell.value) { cell.candidates = new Set(); continue; }
-      const used = usedDigits(board, r, c);
-      const cand = new Set<number>();
-      for (const d of DIGITS) if (!used.has(d)) cand.add(d);
-      cell.candidates = cand;
+      const allowed = allowedDigits(board, r, c);
+      // subtract suppressed
+      const vis = new Set<number>();
+      for (const d of allowed) if (!cell.suppressed.has(d)) vis.add(d);
+      cell.candidates = vis;
     }
   }
   return next;
 }
 
-function usedDigits(board: Board, r: number, c: number): Set<number> {
-  const out = new Set<number>();
-  for (let cc = 0; cc < 9; cc++) { const v = board[r][cc].value; if (v) out.add(v); }
-  for (let rr = 0; rr < 9; rr++) { const v = board[rr][c].value; if (v) out.add(v); }
+function allowedDigits(board: Board, r: number, c: number): Set<number> {
+  const used = new Set<number>();
+  for (let cc = 0; cc < 9; cc++) {
+    const v = board[r][cc].value;
+    if (v) used.add(v);
+  }
+
+  for (let rr = 0; rr < 9; rr++) {
+    const v = board[rr][c].value;
+    if (v) used.add(v);
+  }
+
   const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
   for (let rr = br; rr < br + 3; rr++) {
     for (let cc = bc; cc < bc + 3; cc++) {
-      const v = board[rr][cc].value; if (v) out.add(v);
+      const v = board[rr][cc].value;
+      if (v) used.add(v);
     }
   }
+  const out = new Set<number>();
+  for (let d = 1; d <= 9; d++) if (!used.has(d)) out.add(d);
   return out;
 }

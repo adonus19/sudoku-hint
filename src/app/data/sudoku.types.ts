@@ -7,7 +7,8 @@ export interface Cell {
   box: number; // 0..8
   value: Digit;
   given: boolean; // true if part of initial puzzle
-  candidates: Candidates; // empty until Step 4
+  candidates: Candidates;           // visible (allowed − suppressed)
+  suppressed: ReadonlySet<number>;  // digits intentionally removed by hints/user
 }
 
 export type Row = ReadonlyArray<Cell>;
