@@ -64,14 +64,14 @@
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   place-items: center;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(0, 0, 0, .35);
 }
 
 .p {
   opacity: 0;
-  border-radius: 3px;
-  padding: 0 2px;
+  border-radius: 2px;
+  padding: 0 3px;
 }
 
 .p.on {
@@ -79,7 +79,7 @@
 }
 
 .p.cand-match {
-  background: rgba(25, 118, 210, .18);
+  background: rgba(25, 118, 210, 0.231);
   color: rgba(0, 0, 0, .85);
   font-weight: 600;
 }

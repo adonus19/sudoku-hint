@@ -49,6 +49,10 @@ export class HintService {
       if (hp) return hp;
     }
 
+    // 6) XY-Wing
+    const xy = this.xyWing(b);
+    if (xy) return xy;
+
     return null;
   }
 
@@ -294,6 +298,131 @@ export class HintService {
     }
     return null;
   }
+
+  // ---------- XY-Wing ----------
+  /**
+   * Pattern: Pivot P with candidates {X,Y}, Pincer A with {X,Z} sharing a unit with P,
+   *          Pincer B with {Y,Z} sharing a different unit with P. Any cell that sees A and B
+   *          cannot be Z → eliminate Z there.
+   */
+  private xyWing(board: Board): HintResult | null {
+    // Precompute peers for quick intersection
+    const peersCache = new Map<string, Set<string>>();
+
+    const peersOf = (r: number, c: number): Set<string> => {
+      const k = `${r},${c}`;
+      if (peersCache.has(k)) return peersCache.get(k)!;
+      const set = new Set<string>();
+      for (let i = 0; i < 9; i++) {
+        if (i !== c) set.add(`${r},${i}`); // row
+        if (i !== r) set.add(`${i},${c}`); // col
+      }
+      const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) {
+        if (rr === r && cc === c) continue;
+        set.add(`${rr},${cc}`);
+      }
+      peersCache.set(k, set);
+      return set;
+    };
+
+    // list all bi-value cells
+    const bivals: Array<{ r: number; c: number; cand: number[] }> = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = board[r][c];
+      if (cell.value) continue;
+      const cand = Array.from(cell.candidates);
+      if (cand.length === 2) bivals.push({ r, c, cand: cand.sort((a, b) => a - b) });
+    }
+
+    for (const pivot of bivals) {
+      const [X, Y] = pivot.cand;
+      // find pincers that see pivot: one with {X,Z}, one with {Y,Z}
+      const pivotPeers = peersOf(pivot.r, pivot.c);
+
+      const pinX: Array<{ r: number; c: number; Z: number }> = [];
+      const pinY: Array<{ r: number; c: number; Z: number }> = [];
+
+      for (const peerKey of pivotPeers) {
+        const [pr, pc] = peerKey.split(',').map(Number);
+        const cell = board[pr][pc];
+        if (cell.value) continue;
+        const cand = Array.from(cell.candidates);
+        if (cand.length !== 2) continue;
+        const s = new Set(cand);
+        if (s.has(X) && !s.has(Y)) {
+          const Z = cand.find(d => d !== X)!;
+          pinX.push({ r: pr, c: pc, Z });
+        } else if (s.has(Y) && !s.has(X)) {
+          const Z = cand.find(d => d !== Y)!;
+          pinY.push({ r: pr, c: pc, Z });
+        }
+      }
+
+      for (const a of pinX) {
+        for (const b of pinY) {
+          if (a.Z !== b.Z) continue; // need shared Z
+          const Z = a.Z;
+
+          // eliminations: cells that see both a and b, with candidate Z
+          const meet = intersectKeys(peersOf(a.r, a.c), peersOf(b.r, b.c));
+          // exclude pivot and the pincers themselves
+          meet.delete(`${pivot.r},${pivot.c}`);
+          meet.delete(`${a.r},${a.c}`);
+          meet.delete(`${b.r},${b.c}`);
+
+          const eliminations: Array<{ r: number; c: number; d: number }> = [];
+          for (const key of meet) {
+            const [er, ec] = key.split(',').map(Number);
+            const cell = board[er][ec];
+            if (!cell.value && cell.candidates.has(Z)) eliminations.push({ r: er, c: ec, d: Z });
+          }
+          if (!eliminations.length) continue;
+
+          // Build hint
+          const steps: HintStep[] = [
+            {
+              title: `XY-Wing pivot at ${coord(pivot.r, pivot.c)}`,
+              message: `Pivot ${coord(pivot.r, pivot.c)} has candidates {${X}, ${Y}}.`,
+              highlight: { cells: [{ r: pivot.r, c: pivot.c }], candTargets: [{ r: pivot.r, c: pivot.c, d: X }, { r: pivot.r, c: pivot.c, d: Y }] }
+            },
+            {
+              title: `Pincers ${coord(a.r, a.c)} and ${coord(b.r, b.c)}`,
+              message: `${coord(a.r, a.c)} has {${X}, ${Z}} and ${coord(b.r, b.c)} has {${Y}, ${Z}}. Both see the pivot.`,
+              highlight: {
+                cells: [{ r: a.r, c: a.c }, { r: b.r, c: b.c }],
+                candTargets: [
+                  { r: a.r, c: a.c, d: X }, { r: a.r, c: a.c, d: Z },
+                  { r: b.r, c: b.c, d: Y }, { r: b.r, c: b.c, d: Z }
+                ]
+              }
+            },
+            {
+              title: `Why XY-Wing works`,
+              message: `If ${coord(pivot.r, pivot.c)} is ${X}, then ${coord(b.r, b.c)} must be ${Z}. If ${coord(pivot.r, pivot.c)} is ${Y}, then ${coord(a.r, a.c)} must be ${Z}. Either way, any cell that sees both pincers cannot be ${Z}.`,
+              highlight: { cells: [{ r: a.r, c: a.c }, { r: b.r, c: b.c }] }
+            },
+            {
+              title: `Eliminate ${Z}`,
+              message: `Remove ${Z} from ${eliminations.map(e => coord(e.r, e.c)).join(', ')}.`,
+              highlight: { candTargets: eliminations }
+            }
+          ];
+
+          // pick a stable target (pivot) for post-apply selection
+          return {
+            kind: 'XY-Wing',
+            digit: Z,
+            target: { r: pivot.r, c: pivot.c },
+            steps,
+            apply: (b) => removeCandidates(b, eliminations)
+          };
+        }
+      }
+    }
+
+    return null;
+  }
 }
 
 // ---------- helpers ----------
@@ -358,6 +487,12 @@ function groupBy<T>(arr: T[], keyFn: (item: T) => string): Record<string, T[]> {
     if (!out[k]) out[k] = [];
     out[k].push(item);
   }
+  return out;
+}
+
+function intersectKeys(a: Set<string>, b: Set<string>): Set<string> {
+  const out = new Set<string>();
+  for (const k of a) if (b.has(k)) out.add(k);
   return out;
 }
 

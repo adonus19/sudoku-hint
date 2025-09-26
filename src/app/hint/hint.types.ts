@@ -16,7 +16,7 @@ export interface HintStep {
   highlight?: HintHighlight;
 }
 
-export type HintKind = 'Naked Single' | 'Hidden Single' | 'Locked Candidates' | 'Naked Pair' | 'Hidden Pair';
+export type HintKind = 'Naked Single' | 'Hidden Single' | 'Locked Candidates' | 'Naked Pair' | 'Hidden Pair' | 'XY-Wing';
 
 export interface HintResult {
   kind: HintKind;

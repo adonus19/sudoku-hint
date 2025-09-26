@@ -1,8 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { Board, Digit, Coord } from './sudoku.types';
 import { createEmptyBoard, setValue, clearValue, detectConflicts, parseBoardString, computeCandidates } from './sudoku.utils';
-import { HintHighlight } from '../hint/hint.types';
-import { HintResult } from '../hint/hint.types';
+import { HintHighlight, HintResult } from '../hint/hint.types';
 
 @Injectable({
   providedIn: 'root'
@@ -30,9 +29,13 @@ export class SudokuStore {
     this._hl.set(null);
   }
 
-  toggleEditingGivenMode() { this._editingGivenMode.update(v => !v); }
+  toggleEditingGivenMode() {
+    this._editingGivenMode.update(v => !v);
+  }
 
-  select(r: number, c: number) { this._selected.set({ r, c }); }
+  select(r: number, c: number) {
+    this._selected.set({ r, c });
+  }
 
   setCellValue(r: number, c: number, value: Digit, opts?: { asGiven?: boolean }) {
     const asGiven = opts?.asGiven ?? this._editingGivenMode();
@@ -61,9 +64,24 @@ export class SudokuStore {
     this._board.update(b => computeCandidates(b));
   }
 
+  /** Clear all suppressed candidates (why: rebuild pencils from pure constraints) */
+  resetPencils() {
+    const next = this._board().map(row => row.map(cell => ({
+      ...cell,
+      suppressed: new Set<number>() // clear all
+    })));
+    this._board.set(next);
+    this.recomputeCandidates();
+  }
+
   // --- Hint highlight control ---
-  setHighlights(h: HintHighlight | null) { this._hl.set(h); }
-  clearHighlights() { this._hl.set(null); }
+  setHighlights(h: HintHighlight | null) {
+    this._hl.set(h);
+  }
+
+  clearHighlights() {
+    this._hl.set(null);
+  }
 
   // Apply hint result and refresh
   applyHint(h: HintResult) {

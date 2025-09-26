@@ -5,25 +5,24 @@
   <button
     mat-button
     (click)="openHint()"
-    aria-label="Get a hint"
-  >
-    <mat-icon>lightbulb</mat-icon>
-    Hint
-  </button>
-
+  ><mat-icon>lightbulb</mat-icon>Hint</button>
   <button
     mat-button
     (click)="openImport()"
-    aria-label="Import 81-char puzzle"
+  ><mat-icon>file_upload</mat-icon>Import</button>
+
+  <button
+    mat-button
+    (click)="store.resetPencils()"
+    aria-label="Reset pencil marks"
   >
-    <mat-icon>file_upload</mat-icon>
-    Import
+    <mat-icon>layers_clear</mat-icon>
+    Reset pencils
   </button>
 
   <mat-slide-toggle
     [checked]="store.editingGivenMode()"
     (change)="store.toggleEditingGivenMode()"
-    aria-label="Toggle initial-entry mode"
   >
     Initial entry mode
   </mat-slide-toggle>
@@ -31,11 +30,7 @@
   <button
     mat-button
     (click)="store.resetBoard()"
-    aria-label="Reset board"
-  >
-    <mat-icon>restart_alt</mat-icon>
-    Reset
-  </button>
+  ><mat-icon>restart_alt</mat-icon>Reset</button>
 </mat-toolbar>
 
 <div class="container">
