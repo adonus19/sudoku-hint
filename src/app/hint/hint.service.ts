@@ -49,7 +49,29 @@ export class HintService {
       if (hp) return hp;
     }
 
-    // 6) XY-Wing
+    // 6) BUG (BUG+1)
+    const bug = this.bug(b);
+    if (bug) return bug;
+
+    // 7) Swordfish (rows, then cols)  ← added here
+    const sfRow = this.swordfish(b, 'row');
+    if (sfRow) return sfRow;
+    const sfCol = this.swordfish(b, 'col');
+    if (sfCol) return sfCol;
+
+    // 8) Jellyfish (rows, then cols)
+    const jfRow = this.swordfish(b, 'row');
+    if (jfRow) return jfRow;
+    const jfCol = this.swordfish(b, 'col');
+    if (jfCol) return jfCol;
+
+    // 9) Skyscraper (rows, then cols)
+    const skyRow = this.skyscraper(b, 'row');
+    if (skyRow) return skyRow;
+    const skyCol = this.skyscraper(b, 'col');
+    if (skyCol) return skyCol;
+
+    // 10) XY-Wing
     const xy = this.xyWing(b);
     if (xy) return xy;
 
@@ -299,6 +321,393 @@ export class HintService {
     return null;
   }
 
+  /**
+   * BUG (BUG+1):
+   * All unsolved cells are bi-value except ONE cell S with exactly 3 candidates.
+   * When counting candidate digits globally, exactly one digit has an odd total.
+   * That digit must be the value at S.
+   */
+  private bug(board: Board): HintResult | null {
+    // Collect unsolved cells and detect the single tri-value exception
+    const unsolved: Array<{ r: number; c: number; cand: number[] }> = [];
+    let tri: { r: number; c: number; cand: number[] } | null = null;
+
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = board[r][c];
+        if (cell.value) continue;
+        const cand = Array.from(cell.candidates);
+        if (cand.length === 0) return null;                 // not a valid BUG state
+        if (cand.length === 2) {
+          unsolved.push({ r, c, cand });
+        } else if (cand.length === 3) {
+          if (tri) return null;                              // more than one exception
+          tri = { r, c, cand };
+        } else {
+          return null;                                       // has >3 candidates → not BUG+1
+        }
+      }
+    }
+    if (!tri) return null;                                   // need exactly one tri-value cell
+
+    // Global parity count per digit
+    const count = new Map<number, number>();
+    for (let d = 1; d <= 9; d++) count.set(d, 0);
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = board[r][c];
+      if (cell.value) continue;
+      for (const d of cell.candidates) count.set(d, (count.get(d) || 0) + 1);
+    }
+
+    const oddDigits = [...count.entries()].filter(([_, n]) => n % 2 === 1).map(([d]) => d);
+    if (oddDigits.length !== 1) return null;
+
+    const dMust = oddDigits[0];
+    if (!tri.cand.includes(dMust)) return null;              // parity digit must be in tri cell
+
+    // Optional: highlight all occurrences of dMust to visualize odd parity
+    const allDCells: Array<{ r: number; c: number; d: number }> = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = board[r][c];
+      if (!cell.value && cell.candidates.has(dMust)) allDCells.push({ r, c, d: dMust });
+    }
+
+    const steps: HintStep[] = [
+      {
+        title: `BUG+1 state`,
+        message: `Every empty cell is bi-value except ${coord(tri.r, tri.c)} with 3 candidates {${tri.cand.join(', ')}}.`,
+        highlight: { cells: [{ r: tri.r, c: tri.c }] }
+      },
+      {
+        title: `Parity check`,
+        message: `Across the board, candidate counts must be even. Only ${dMust} appears an odd number of times.`,
+        highlight: { candTargets: allDCells }
+      },
+      {
+        title: `Conclusion`,
+        message: `${dMust} must be placed at ${coord(tri.r, tri.c)} to fix parity.`,
+        highlight: { cells: [{ r: tri.r, c: tri.c }], candTargets: [{ r: tri.r, c: tri.c, d: dMust }] }
+      }
+    ];
+
+    return {
+      kind: 'BUG',
+      digit: dMust,
+      target: { r: tri.r, c: tri.c },
+      steps,
+      apply: (b) => setValueKeepCands(b, tri!.r, tri!.c, dMust)
+    };
+  }
+
+  // ---------- Swordfish (size 3 fish) ----------
+  private swordfish(board: Board, orientation: 'row' | 'col'): HintResult | null {
+    // orientation 'row': choose 3 rows; candidate columns union size == 3; eliminate in those columns from other rows
+    // orientation 'col': symmetric
+    for (let d = 1; d <= 9; d++) {
+      const unitIndices = [...Array(9).keys()];
+      const combos = chooseCombos(unitIndices, 3);
+      for (const trio of combos) {
+        if (orientation === 'row') {
+          // map each row -> set of columns where d is a candidate (limit 2..3)
+          const rowCols: Array<{ r: number; cols: number[] }> = trio.map(r => ({
+            r,
+            cols: colsWithDigit(board, r, d)
+          }));
+          if (rowCols.some(x => x.cols.length === 0 || x.cols.length > 3)) continue;
+          const unionCols = uniq(rowCols.flatMap(x => x.cols)).sort((a, b) => a - b);
+          if (unionCols.length !== 3) continue;
+          // ensure each row's cols ⊆ union
+          if (!rowCols.every(x => x.cols.every(c => unionCols.includes(c)))) continue;
+
+          // eliminations: in unionCols, for all rows NOT in trio, remove d
+          const elim: Array<{ r: number; c: number; d: number }> = [];
+          for (let r = 0; r < 9; r++) {
+            if (trio.includes(r)) continue;
+            for (const c of unionCols) {
+              const cell = board[r][c];
+              if (!cell.value && cell.candidates.has(d)) elim.push({ r, c, d });
+            }
+          }
+          if (!elim.length) continue;
+
+          const fishCells = rowCols.flatMap(x => x.cols.map(c => ({ r: x.r, c })));
+          const steps: HintStep[] = [
+            {
+              title: `Swordfish on ${d} (rows ${ROW_LETTERS[trio[0]]}, ${ROW_LETTERS[trio[1]]}, ${ROW_LETTERS[trio[2]]})`,
+              message: `In rows ${ROW_LETTERS[trio[0]]}, ${ROW_LETTERS[trio[1]]}, ${ROW_LETTERS[trio[2]]}, digit ${d} appears only in columns ${unionCols.map(c => c + 1).join(', ')}.`,
+              highlight: { rows: trio, cols: unionCols, cells: fishCells, candTargets: fishCells.map(s => ({ r: s.r, c: s.c, d })) }
+            },
+            {
+              title: `Eliminate ${d} from other rows`,
+              message: `Remove ${d} from columns ${unionCols.map(c => c + 1).join(', ')} in all other rows: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+              highlight: { cols: unionCols, candTargets: elim }
+            }
+          ];
+          return { kind: 'Swordfish', digit: d, target: { r: rowCols[0].r, c: rowCols[0].cols[0] }, steps, apply: (b) => removeCandidates(b, elim) };
+        } else {
+          // orientation === 'col'
+          const colRows: Array<{ c: number; rows: number[] }> = trio.map(c => ({
+            c,
+            rows: rowsWithDigit(board, c, d)
+          }));
+          if (colRows.some(x => x.rows.length === 0 || x.rows.length > 3)) continue;
+          const unionRows = uniq(colRows.flatMap(x => x.rows)).sort((a, b) => a - b);
+          if (unionRows.length !== 3) continue;
+          if (!colRows.every(x => x.rows.every(r => unionRows.includes(r)))) continue;
+
+          const elim: Array<{ r: number; c: number; d: number }> = [];
+          for (let c = 0; c < 9; c++) {
+            if (trio.includes(c)) continue;
+            for (const r of unionRows) {
+              const cell = board[r][c];
+              if (!cell.value && cell.candidates.has(d)) elim.push({ r, c, d });
+            }
+          }
+          if (!elim.length) continue;
+
+          const fishCells = colRows.flatMap(x => x.rows.map(r => ({ r, c: x.c })));
+          const steps: HintStep[] = [
+            {
+              title: `Swordfish on ${d} (columns ${trio.map(c => c + 1).join(', ')})`,
+              message: `In columns ${trio.map(c => c + 1).join(', ')}, digit ${d} appears only in rows ${unionRows.map(r => ROW_LETTERS[r]).join(', ')}.`,
+              highlight: { cols: trio, rows: unionRows, cells: fishCells, candTargets: fishCells.map(s => ({ r: s.r, c: s.c, d })) }
+            },
+            {
+              title: `Eliminate ${d} from other columns`,
+              message: `Remove ${d} from rows ${unionRows.map(r => ROW_LETTERS[r]).join(', ')} in all other columns: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+              highlight: { rows: unionRows, candTargets: elim }
+            }
+          ];
+          return { kind: 'Swordfish', digit: d, target: { r: colRows[0].rows[0], c: colRows[0].c }, steps, apply: (b) => removeCandidates(b, elim) };
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Jellyfish (size 4): like Swordfish but with 4 rows/cols and union of 4 counterpart cols/rows */
+  private jellyfish(board: Board, orientation: 'row' | 'col'): HintResult | null {
+    for (let d = 1; d <= 9; d++) {
+      const unitIdx = [...Array(9).keys()];
+      for (const quad of chooseCombos(unitIdx, 4)) {
+        if (orientation === 'row') {
+          // rows → collect candidate columns per row (2..4)
+          const rowCols: Array<{ r: number; cols: number[] }> = quad.map(r => ({
+            r, cols: colsWithDigit(board, r, d)
+          }));
+          if (rowCols.some(x => x.cols.length === 0 || x.cols.length > 4)) continue;
+          const unionCols = uniq(rowCols.flatMap(x => x.cols)).sort((a, b) => a - b);
+          if (unionCols.length !== 4) continue;
+          if (!rowCols.every(x => x.cols.every(c => unionCols.includes(c)))) continue;
+
+          // eliminate d from unionCols in rows not in the quad
+          const elim: Array<{ r: number; c: number; d: number }> = [];
+          for (let r = 0; r < 9; r++) {
+            if (quad.includes(r)) continue;
+            for (const c of unionCols) {
+              const cell = board[r][c];
+              if (!cell.value && cell.candidates.has(d)) elim.push({ r, c, d });
+            }
+          }
+          if (!elim.length) continue;
+
+          const fishCells = rowCols.flatMap(x => x.cols.map(c => ({ r: x.r, c })));
+          const steps: HintStep[] = [
+            {
+              title: `Jellyfish on ${d} (rows ${quad.map(r => ROW_LETTERS[r]).join(', ')})`,
+              message: `In rows ${quad.map(r => ROW_LETTERS[r]).join(', ')}, ${d} appears only in columns ${unionCols.map(c => c + 1).join(', ')}.`,
+              highlight: { rows: quad, cols: unionCols, cells: fishCells, candTargets: fishCells.map(s => ({ r: s.r, c: s.c, d })) }
+            },
+            {
+              title: `Eliminate ${d} from other rows`,
+              message: `Remove ${d} from columns ${unionCols.map(c => c + 1).join(', ')} in all other rows: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+              highlight: { cols: unionCols, candTargets: elim }
+            }
+          ];
+          return { kind: 'Jellyfish', digit: d, target: fishCells[0], steps, apply: (b) => removeCandidates(b, elim) };
+        } else {
+          // columns → collect candidate rows per column (2..4)
+          const colRows: Array<{ c: number; rows: number[] }> = quad.map(c => ({
+            c, rows: rowsWithDigit(board, c, d)
+          }));
+          if (colRows.some(x => x.rows.length === 0 || x.rows.length > 4)) continue;
+          const unionRows = uniq(colRows.flatMap(x => x.rows)).sort((a, b) => a - b);
+          if (unionRows.length !== 4) continue;
+          if (!colRows.every(x => x.rows.every(r => unionRows.includes(r)))) continue;
+
+          const elim: Array<{ r: number; c: number; d: number }> = [];
+          for (let c = 0; c < 9; c++) {
+            if (quad.includes(c)) continue;
+            for (const r of unionRows) {
+              const cell = board[r][c];
+              if (!cell.value && cell.candidates.has(d)) elim.push({ r, c, d });
+            }
+          }
+          if (!elim.length) continue;
+
+          const fishCells = colRows.flatMap(x => x.rows.map(r => ({ r, c: x.c })));
+          const steps: HintStep[] = [
+            {
+              title: `Jellyfish on ${d} (columns ${quad.map(c => c + 1).join(', ')})`,
+              message: `In columns ${quad.map(c => c + 1).join(', ')}, ${d} appears only in rows ${unionRows.map(r => ROW_LETTERS[r]).join(', ')}.`,
+              highlight: { cols: quad, rows: unionRows, cells: fishCells, candTargets: fishCells.map(s => ({ r: s.r, c: s.c, d })) }
+            },
+            {
+              title: `Eliminate ${d} from other columns`,
+              message: `Remove ${d} from rows ${unionRows.map(r => ROW_LETTERS[r]).join(', ')} in all other columns: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+              highlight: { rows: unionRows, candTargets: elim }
+            }
+          ];
+          return { kind: 'Jellyfish', digit: d, target: fishCells[0], steps, apply: (b) => removeCandidates(b, elim) };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Skyscraper on digit d:
+   * orientation 'row': pick two rows r1,r2 that each form a strong link (exactly two cols),
+   * sharing one column cS; the other columns cA (in r1) and cB (in r2) are the "towers".
+   * Any cell that sees BOTH (r1,cA) and (r2,cB) cannot be d.
+   */
+  private skyscraper(board: Board, orientation: 'row' | 'col'): HintResult | null {
+    // peers helper (local, cached)
+    const peersCache = new Map<string, Set<string>>();
+    const peersOf = (r: number, c: number): Set<string> => {
+      const k = `${r},${c}`;
+      if (peersCache.has(k)) return peersCache.get(k)!;
+      const s = new Set<string>();
+      for (let i = 0; i < 9; i++) {
+        if (i !== c) s.add(`${r},${i}`); // row
+        if (i !== r) s.add(`${i},${c}`); // col
+      }
+      const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) {
+        if (rr === r && cc === c) continue;
+        s.add(`${rr},${cc}`);
+      }
+      peersCache.set(k, s);
+      return s;
+    };
+
+    // For each digit, gather strong links per unit (two spots exactly)
+    for (let d = 1; d <= 9; d++) {
+      if (orientation === 'row') {
+        // row strong links: map row -> [c1,c2] where only these two have candidate d
+        const rowLinks: Array<{ r: number; cols: number[] }> = [];
+        for (let r = 0; r < 9; r++) {
+          const cols: number[] = [];
+          for (let c = 0; c < 9; c++) if (!board[r][c].value && board[r][c].candidates.has(d)) cols.push(c);
+          if (cols.length === 2) rowLinks.push({ r, cols });
+        }
+        // pick two rows whose sets share exactly one column
+        for (const [i, j] of choosePairs(rowLinks.length)) {
+          const A = rowLinks[i], B = rowLinks[j];
+          const shared = A.cols.filter(c => B.cols.includes(c));
+          if (shared.length !== 1) continue;
+          const cS = shared[0];                            // shared column
+          const cA = A.cols.find(c => c !== cS)!;          // tower 1
+          const cB = B.cols.find(c => c !== cS)!;          // tower 2
+          const t1 = { r: A.r, c: cA }, t2 = { r: B.r, c: cB };
+          // cells that see both towers
+          const meet = intersectKeys(peersOf(t1.r, t1.c), peersOf(t2.r, t2.c));
+          meet.delete(`${t1.r},${t1.c}`); meet.delete(`${t2.r},${t2.c}`);
+          const elim: Array<{ r: number; c: number; d: number }> = [];
+          for (const k of meet) {
+            const [er, ec] = k.split(',').map(Number);
+            const cell = board[er][ec];
+            if (!cell.value && cell.candidates.has(d)) elim.push({ r: er, c: ec, d });
+          }
+          if (!elim.length) continue;
+
+          const steps: HintStep[] = [
+            {
+              title: `Skyscraper on ${d} (rows ${ROW_LETTERS[A.r]} & ${ROW_LETTERS[B.r]})`,
+              message: `Rows ${ROW_LETTERS[A.r]} and ${ROW_LETTERS[B.r]} each have a strong link on ${d} (two spots only). They share column ${cS + 1}.`,
+              highlight: { rows: [A.r, B.r], cols: [cS], cells: [{ r: A.r, c: cS }, { r: B.r, c: cS }], candTargets: [{ r: A.r, c: cS, d }, { r: B.r, c: cS, d }] }
+            },
+            {
+              title: `The towers`,
+              message: `The other endpoints are ${coord(t1.r, t1.c)} and ${coord(t2.r, t2.c)}.`,
+              highlight: {
+                rows: [A.r, B.r],
+                cols: [cA, cB],
+                cells: [t1, t2],
+                candTargets: [{ r: t1.r, c: t1.c, d }, { r: t2.r, c: t2.c, d }]
+              }
+            },
+            {
+              title: `Why it works`,
+              message: `If ${coord(t1.r, t1.c)} is not ${d}, ${coord(A.r, cS)} must be ${d}, forcing ${coord(B.r, cS)} not ${d}, so ${coord(t2.r, t2.c)} must be ${d}. Or vice-versa. Therefore any cell that sees both towers cannot be ${d}.`
+            },
+            {
+              title: `Eliminate ${d}`,
+              message: `Remove ${d} from: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+              highlight: { candTargets: elim }
+            }
+          ];
+          return { kind: 'Skyscraper', digit: d, target: t1, steps, apply: (b) => removeCandidates(b, elim) };
+        }
+      } else {
+        // orientation === 'col': symmetric (swap r/c)
+        const colLinks: Array<{ c: number; rows: number[] }> = [];
+        for (let c = 0; c < 9; c++) {
+          const rows: number[] = [];
+          for (let r = 0; r < 9; r++) if (!board[r][c].value && board[r][c].candidates.has(d)) rows.push(r);
+          if (rows.length === 2) colLinks.push({ c, rows });
+        }
+        for (const [i, j] of choosePairs(colLinks.length)) {
+          const A = colLinks[i], B = colLinks[j];
+          const shared = A.rows.filter(r => B.rows.includes(r));
+          if (shared.length !== 1) continue;
+          const rS = shared[0];
+          const rA = A.rows.find(r => r !== rS)!;
+          const rB = B.rows.find(r => r !== rS)!;
+          const t1 = { r: rA, c: A.c }, t2 = { r: rB, c: B.c };
+          const meet = intersectKeys(peersOf(t1.r, t1.c), peersOf(t2.r, t2.c));
+          meet.delete(`${t1.r},${t1.c}`); meet.delete(`${t2.r},${t2.c}`);
+          const elim: Array<{ r: number; c: number; d: number }> = [];
+          for (const k of meet) {
+            const [er, ec] = k.split(',').map(Number);
+            const cell = board[er][ec];
+            if (!cell.value && cell.candidates.has(d)) elim.push({ r: er, c: ec, d });
+          }
+          if (!elim.length) continue;
+
+          const steps: HintStep[] = [
+            {
+              title: `Skyscraper on ${d} (columns ${A.c + 1} & ${B.c + 1})`,
+              message: `Columns ${A.c + 1} and ${B.c + 1} each have a strong link on ${d}. They share row ${ROW_LETTERS[rS]}.`,
+              highlight: { cols: [A.c, B.c], rows: [rS], cells: [{ r: rS, c: A.c }, { r: rS, c: B.c }], candTargets: [{ r: rS, c: A.c, d }, { r: rS, c: B.c, d }] }
+            },
+            {
+              title: `The towers`,
+              message: `The other endpoints are ${coord(t1.r, t1.c)} and ${coord(t2.r, t2.c)}.`,
+              highlight: {
+                cols: [A.c, B.c],
+                rows: [rA, rB],
+                cells: [t1, t2],
+                candTargets: [{ r: t1.r, c: t1.c, d }, { r: t2.r, c: t2.c, d }]
+              }
+            },
+            {
+              title: `Why it works`,
+              message: `Either ${coord(t1.r, t1.c)} or ${coord(t2.r, t2.c)} must be ${d}, so any cell that sees both cannot be ${d}.`
+            },
+            {
+              title: `Eliminate ${d}`,
+              message: `Remove ${d} from: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+              highlight: { candTargets: elim }
+            }
+          ];
+          return { kind: 'Skyscraper', digit: d, target: t1, steps, apply: (b) => removeCandidates(b, elim) };
+        }
+      }
+    }
+    return null;
+  }
+
   // ---------- XY-Wing ----------
   /**
    * Pattern: Pivot P with candidates {X,Y}, Pincer A with {X,Z} sharing a unit with P,
@@ -496,3 +905,35 @@ function intersectKeys(a: Set<string>, b: Set<string>): Set<string> {
   return out;
 }
 
+function chooseCombos(items: number[], k: number): number[][] {
+  const res: number[][] = [];
+  const n = items.length;
+  const dfs = (start: number, path: number[]) => {
+    if (path.length === k) { res.push([...path]); return; }
+    for (let i = start; i < n; i++) {
+      path.push(items[i]);
+      dfs(i + 1, path);
+      path.pop();
+    }
+  };
+  dfs(0, []);
+  return res;
+}
+
+function colsWithDigit(board: Board, r: number, d: number): number[] {
+  const cols: number[] = [];
+  for (let c = 0; c < 9; c++) if (!board[r][c].value && board[r][c].candidates.has(d)) cols.push(c);
+  return cols;
+}
+
+function rowsWithDigit(board: Board, c: number, d: number): number[] {
+  const rows: number[] = [];
+  for (let r = 0; r < 9; r++) if (!board[r][c].value && board[r][c].candidates.has(d)) rows.push(r);
+  return rows;
+}
+
+function choosePairs(n: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out.push([i, j]);
+  return out;
+}
