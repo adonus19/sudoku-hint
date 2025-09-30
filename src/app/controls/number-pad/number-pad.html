@@ -1,0 +1,18 @@
+<div class="pad">
+  @for (d of digits; track $index) {
+  <button
+    mat-stroked-button
+    (click)="pressDigit(d)"
+  >{{ d }}</button>
+  }
+  <button
+    mat-stroked-button
+    (click)="clear()"
+  ><mat-icon>backspace</mat-icon></button>
+  <button
+    mat-flat-button
+    color="primary"
+    (click)="togglePencil()"
+    [class.on]="store.pencilMode()"
+  >Pencil</button>
+</div>

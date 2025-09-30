@@ -1,0 +1,30 @@
+.sheet {
+  padding: 12px 16px 16px;
+}
+
+.hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.step-title {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.msg {
+  margin-top: 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}

@@ -21,11 +21,7 @@ export class Board {
   private hasFocus = signal<boolean>(false);
   private hovered = signal<Coord | null>(null);
 
-  constructor() {
-    effect(() => {
-      if (!this.store.selected()) this.store.select(0, 0);
-    });
-  }
+  constructor() { effect(() => { if (!this.store.selected()) this.store.select(0, 0); }); }
 
   rowLetter(r: number) {
     return ROW_LETTERS[r];
@@ -33,6 +29,7 @@ export class Board {
 
   focusBoard() {
     this.hasFocus.set(true);
+
   }
 
   hasValue(r: number, c: number) {
@@ -61,7 +58,6 @@ export class Board {
     const cell = this.store.board()[r][c];
     const base = `Row ${r + 1} Column ${c + 1}`;
     if (cell.value) return `${base}, value ${cell.value}${cell.given ? ', given' : ''}`;
-
     const cands = Array.from(cell.candidates).sort().join(',');
     return `${base}, empty${cands ? ', candidates ' + cands : ''}`;
   }
@@ -69,62 +65,49 @@ export class Board {
   private activeContext() {
     const sel = this.store.selected();
     const hov = this.hovered();
-    const board = this.store.board();
+    const b = this.store.board();
     if (sel) {
-      const v = board[sel.r][sel.c].value || null;
-      const box = board[sel.r][sel.c].box;
+      const v = b[sel.r][sel.c].value || null;
+      const box = b[sel.r][sel.c].box;
       return { coord: sel, value: v, box };
     }
-
     if (hov) {
-      const v = board[hov.r][hov.c].value || null;
-      const box = board[hov.r][hov.c].box;
+      const v = b[hov.r][hov.c].value || null;
+      const box = b[hov.r][hov.c].box;
       return { coord: hov, value: v, box };
     }
-
-    return {
-      coord: null as Coord | null,
-      value: null as number | null,
-      box: null as number | null
-    };
+    return { coord: null as Coord | null, value: null as number | null, box: null as number | null };
   }
 
-  candMatchesActive(r: number, c: number, d: number): boolean {
-    const ctx = this.activeContext(); if (!ctx.value) return false;
+  candMatchesActive(r: number, c: number, d: number) {
+    const ctx = this.activeContext();
+    if (!ctx.value) return false;
     const cell = this.store.board()[r][c];
     return cell.value === 0 && cell.candidates?.has(d) && d === ctx.value;
   }
 
-  candInHint(r: number, c: number, d: number): boolean {
+  candInHint(r: number, c: number, d: number) {
     const h = this.store.highlight();
     if (!h?.candTargets) return false;
     return h.candTargets.some(x => x.r === r && x.c === c && x.d === d);
   }
 
   cellClasses(r: number, c: number) {
-    const board = this.store.board();
-    const cell = board[r][c];
+    const b = this.store.board();
+    const cell = b[r][c];
     const selected = this.isSelected(r, c);
     const isUser = !!cell.value && !cell.given;
-
     const ctx = this.activeContext();
     const hlRow = !!ctx.coord && ctx.coord.r === r;
     const hlCol = !!ctx.coord && ctx.coord.c === c;
     const hlBox = !!ctx.coord && ctx.box === cell.box;
-
-    let match = false;
-    if (ctx.value) {
-      match = cell.value === ctx.value;
-    }
-
+    const match = !!ctx.value && cell.value === ctx.value;
     const conflict = this.store.conflicts().cells.has(`${r},${c}`);
-
     const h = this.store.highlight();
     const hintRow = h?.rows?.includes(r) ?? false;
     const hintCol = h?.cols?.includes(c) ?? false;
     const hintBox = h?.boxes?.includes(cell.box) ?? false;
     const hintTarget = (h?.cells || []).some(cc => cc.r === r && cc.c === c);
-
     return {
       given: !!cell.value && cell.given,
       user: isUser,
@@ -150,12 +133,27 @@ export class Board {
     this.hovered.set(enter ? { r, c } : null);
   }
 
+  onPencilClick(ev: MouseEvent, r: number, c: number, d: number) {
+    ev.stopPropagation();              // keep the click on the span
+    if (this.isGiven(r, c)) return;
+    // ensure this cell becomes selected on the first tap
+    this.store.select(r, c);
+    if (!this.store.pencilMode()) return; // only toggle in pencil mode
+    this.store.togglePencilDigit(r, c, d);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKey(ev: KeyboardEvent) {
+    if (ev.key === '.') { ev.preventDefault(); this.store.togglePencilMode(); }
+  }
+
   @HostListener('keydown', ['$event'])
   onKeydown(ev: KeyboardEvent) {
     if (!this.hasFocus()) return;
-    const sel = this.store.selected(); if (!sel) return;
-    const { r, c } = sel;
+    const sel = this.store.selected();
+    if (!sel) return;
 
+    const { r, c } = sel;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(ev.key)) {
       ev.preventDefault();
       const next = this.moveSelection(r, c, ev.key, ev.shiftKey);
@@ -163,9 +161,21 @@ export class Board {
       return;
     }
 
+    // Shift+Backspace clears pencils in cell
+    if ((ev.key === 'Backspace' || ev.key === 'Delete') && ev.shiftKey) {
+      ev.preventDefault();
+      this.store.clearPencils(r, c);
+      return;
+    }
+
+    // Value vs Pencil entry
     if (/^[1-9]$/.test(ev.key)) {
       ev.preventDefault();
-      if (!this.isGiven(r, c) || this.store.editingGivenMode()) this.store.setCellValue(r, c, Number(ev.key) as any);
+      if (this.store.pencilMode()) {
+        if (!this.isGiven(r, c)) this.store.togglePencilDigit(r, c, Number(ev.key));
+      } else {
+        if (!this.isGiven(r, c) || this.store.editingGivenMode()) this.store.setCellValue(r, c, Number(ev.key) as any);
+      }
       return;
     }
 
@@ -181,17 +191,13 @@ export class Board {
       const idx = r * 9 + c;
       const dir = shiftTab ? -1 : 1;
       const next = (idx + dir + 81) % 81;
-      return {
-        r: Math.floor(next / 9),
-        c: next % 9
-      };
+      return { r: Math.floor(next / 9), c: next % 9 };
     }
 
     if (key === 'ArrowUp') return { r: (r + 8) % 9, c };
     if (key === 'ArrowDown') return { r: (r + 1) % 9, c };
     if (key === 'ArrowLeft') return { r, c: (c + 8) % 9 };
     if (key === 'ArrowRight') return { r, c: (c + 1) % 9 };
-
     return { r, c };
   }
 }

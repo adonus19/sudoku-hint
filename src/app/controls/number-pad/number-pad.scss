@@ -1,0 +1,49 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.pad {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(48px, 1fr));
+  gap: 8px;
+  margin: 12px auto 0;
+  max-width: 520px;
+}
+
+/* centered via auto */
+.d {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.pencil {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.on {
+  box-shadow: inset 0 0 0 2px rgba(25, 118, 210, .9);
+}
+
+@media (max-width: 599px) {
+  .pad {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+    max-width: 640px;
+  }
+
+  .d,
+  .pencil {
+    min-height: 48px;
+    font-size: 18px;
+  }
+
+  .lbl {
+    display: none;
+  }
+}

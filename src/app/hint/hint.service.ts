@@ -108,7 +108,7 @@ export class HintService {
           const { r, c } = spots[0];
           const steps: HintStep[] = [
             {
-              title: `Scan ${unitName(kind, idx)}`, message: `Within ${unitName(kind, idx)}, place ${d}.`,
+              title: `Scan ${unitName(kind, idx)}`, message: `Within ${unitName(kind, idx)}, number ${d}.`,
               highlight: unitHighlight(kind, idx)
             },
             {

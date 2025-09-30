@@ -11,14 +11,16 @@ export class SudokuStore {
   private _board = signal<Board>(createEmptyBoard());
   private _selected = signal<Coord | null>(null);
   private _editingGivenMode = signal<boolean>(true);
-
-  // Hint highlights
+  private _pencilMode = signal<boolean>(false);
   private _hl = signal<HintHighlight | null>(null);
+  private _fullScreenBoard = signal<boolean>(false);
 
   board = this._board.asReadonly();
   selected = this._selected.asReadonly();
   editingGivenMode = this._editingGivenMode.asReadonly();
+  pencilMode = this._pencilMode.asReadonly();
   highlight = this._hl.asReadonly();
+  fullScreenBoard = this._fullScreenBoard.asReadonly();
 
   conflicts = computed(() => detectConflicts(this._board()));
 
@@ -26,11 +28,19 @@ export class SudokuStore {
     this._board.set(createEmptyBoard());
     this._selected.set(null);
     this._editingGivenMode.set(true);
+    this._pencilMode.set(false);
     this._hl.set(null);
+  }
+
+  toggleFullScreenBoard() {
+    this._fullScreenBoard.update(v => !v);
   }
 
   toggleEditingGivenMode() {
     this._editingGivenMode.update(v => !v);
+  }
+  togglePencilMode() {
+    this._pencilMode.update(v => !v);
   }
 
   select(r: number, c: number) {
@@ -46,8 +56,8 @@ export class SudokuStore {
   }
 
   clearCell(r: number, c: number) {
-    const current = this._board()[r][c];
-    if (current.given && !this._editingGivenMode()) return;
+    const cur = this._board()[r][c];
+    if (cur.given && !this._editingGivenMode()) return;
     this._board.update(b => clearValue(b, r, c));
     this.recomputeCandidates();
   }
@@ -64,14 +74,61 @@ export class SudokuStore {
     this._board.update(b => computeCandidates(b));
   }
 
-  /** Clear all suppressed candidates (why: rebuild pencils from pure constraints) */
+  /** Clear all suppressed (and keep manual on? No: reset to pure calc) */
   resetPencils() {
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
-      suppressed: new Set<number>() // clear all
+      suppressed: new Set<number>(),
+      manualCands: new Set<number>()
     })));
+
     this._board.set(next);
     this.recomputeCandidates();
+  }
+
+  /** Toggle a pencil digit in selected cell */
+  togglePencilDigit(r: number, c: number, d: number) {
+    const next = this._board().map(row => row.map(cell => ({
+      ...cell,
+      candidates: new Set(cell.candidates),
+      suppressed: new Set(cell.suppressed),
+      manualCands: new Set(cell.manualCands)
+    })));
+    const cell = next[r][c];
+    if (cell.value) { this._board.set(next); return; }
+
+    const isVisible = cell.candidates.has(d); // current visible state
+    const isManual = cell.manualCands.has(d);
+
+    if (isVisible) {
+      if (isManual) {
+        // visible via manual -> turn OFF
+        cell.manualCands.delete(d);
+        cell.suppressed.add(d);
+      } else {
+        // visible via auto -> first tap removes (suppress)
+        cell.suppressed.add(d);
+      }
+    } else {
+      // not visible -> turn ON manually
+      cell.suppressed.delete(d);
+      cell.manualCands.add(d);
+    }
+
+    this._board.set(computeCandidates(next));
+  }
+
+  /** Clear all pencils for a cell (why: quick cleanup) */
+  clearPencils(r: number, c: number) {
+    const next = this._board().map(row => row.map(cell => ({
+      ...cell,
+      candidates: new Set(cell.candidates),
+      suppressed: new Set(cell.suppressed),
+      manualCands: new Set(cell.manualCands)
+    })));
+    next[r][c].suppressed.clear();
+    next[r][c].manualCands.clear();
+    this._board.set(computeCandidates(next));
   }
 
   // --- Hint highlight control ---

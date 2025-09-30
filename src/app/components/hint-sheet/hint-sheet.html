@@ -1,0 +1,33 @@
+<div class="sheet">
+  <div class="hdr">
+    <div class="title">{{ data.kind }}: {{ data.digit }}</div>
+    <button
+      mat-icon-button
+      (click)="close()"
+      aria-label="Close"
+    ><span class="material-icons">close</span></button>
+  </div>
+  <div class="step-title">{{ currentStep().title }}</div>
+  <div class="msg">{{ currentStep().message }}</div>
+  <div class="actions">
+    <button
+      mat-stroked-button
+      (click)="close()"
+    >Dismiss</button>
+
+    @if (!isLast()) {
+    <button
+      mat-stroked-button
+      (click)="next()"
+    >Next</button>
+    }
+
+    @if (isLast()) {
+    <button
+      mat-flat-button
+      color="primary"
+      (click)="apply()"
+    >Apply</button>
+    }
+  </div>
+</div>

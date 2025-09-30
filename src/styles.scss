@@ -63,3 +63,18 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 .app-hl-blue-strong {
   background: rgba(25, 118, 210, .16) !important;
 }
+
+.hint-dialog-floating {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+/* Keep toolbar compact on small screens */
+@media (max-width: 599px) {
+
+  .mat-toolbar-row,
+  .mat-toolbar-single-row {
+    height: 56px;
+  }
+}

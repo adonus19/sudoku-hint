@@ -1,20 +1,29 @@
-<div class="board-wrap">
+<div
+  class="board-outer"
+  [class.labels-off]="store.fullScreenBoard()"
+>
+
+  @if (!store.fullScreenBoard()) {
   <div class="col-labels">
     <div class="corner"></div>
     @for (c of cols; track $index) {
     <div class="col-label">{{ c+1 }}</div>
     }
   </div>
+  }
+
   <div class="row">
+    @if (!store.fullScreenBoard()) {
     <div class="row-labels">
       @for (r of rows; track $index) {
       <div class="row-label">{{ rowLetter(r) }}</div>
       }
     </div>
+    }
+
     <div
       class="board"
       role="grid"
-      aria-label="Sudoku board"
       tabindex="0"
       (click)="focusBoard()"
     >
@@ -35,19 +44,18 @@
           [attr.aria-selected]="isSelected(r,c)"
           [attr.aria-label]="ariaLabel(r,c)"
         >
+
           @if (hasValue(r,c)) {
           <span class="val">{{ cellValue(r,c) }}</span>
           } @else {
-          <div
-            class="pencil"
-            aria-hidden="true"
-          >
+          <div class="pencil">
             @for (d of digits; track $index) {
             <span
               class="p"
               [class.on]="hasCand(r,c,d)"
               [class.cand-match]="candMatchesActive(r,c,d)"
               [class.cand-hint]="candInHint(r,c,d)"
+              (click)="onPencilClick($event, r, c, d)"
             >{{ d }}</span>
             }
           </div>
@@ -58,15 +66,4 @@
       }
     </div>
   </div>
-</div>
-
-<div class="legend">
-  <span class="chip chip-given">Given</span>
-  <span class="chip chip-user">User</span>
-  <span class="chip chip-selected">Selected</span>
-  <span class="chip chip-hl">Row/Col/Box</span>
-  <span class="chip chip-match">Matches</span>
-  <span class="chip chip-conflict">Conflict</span>
-  <span class="chip chip-pencil">Pencil</span>
-  <span class="chip chip-hint">Hint</span>
 </div>

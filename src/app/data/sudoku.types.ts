@@ -9,6 +9,7 @@ export interface Cell {
   given: boolean; // true if part of initial puzzle
   candidates: Candidates;           // visible (allowed − suppressed)
   suppressed: ReadonlySet<number>;  // digits intentionally removed by hints/user
+  manualCands: ReadonlySet<number>;  // ON by user (persist even if disallowed)
 }
 
 export type Row = ReadonlyArray<Cell>;
