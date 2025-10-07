@@ -133,15 +133,6 @@ export class Board {
     this.hovered.set(enter ? { r, c } : null);
   }
 
-  onPencilClick(ev: MouseEvent, r: number, c: number, d: number) {
-    ev.stopPropagation();              // keep the click on the span
-    if (this.isGiven(r, c)) return;
-    // ensure this cell becomes selected on the first tap
-    this.store.select(r, c);
-    if (!this.store.pencilMode()) return; // only toggle in pencil mode
-    this.store.togglePencilDigit(r, c, d);
-  }
-
   @HostListener('document:keydown', ['$event'])
   onGlobalKey(ev: KeyboardEvent) {
     if (ev.key === '.') { ev.preventDefault(); this.store.togglePencilMode(); }
@@ -172,7 +163,8 @@ export class Board {
     if (/^[1-9]$/.test(ev.key)) {
       ev.preventDefault();
       if (this.store.pencilMode()) {
-        if (!this.isGiven(r, c)) this.store.togglePencilDigit(r, c, Number(ev.key));
+        this.store.togglePencilDigitIfEnabled(r, c, Number(ev.key), true);
+
       } else {
         if (!this.isGiven(r, c) || this.store.editingGivenMode()) this.store.setCellValue(r, c, Number(ev.key) as any);
       }

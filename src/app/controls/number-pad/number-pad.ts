@@ -17,13 +17,9 @@ export class NumberPad {
     const sel = this.store.selected();
     if (!sel) return;
     if (this.store.pencilMode()) {
-      this.store.togglePencilDigit(sel.r, sel.c, d);
+      this.store.togglePencilDigitIfEnabled(sel.r, sel.c, d, true);
     } else {
-      if (this.store.editingGivenMode()) {
-        this.store.setCellValue(sel.r, sel.c, d as any, { asGiven: true });
-      } else {
-        this.store.setCellValue(sel.r, sel.c, d as any);
-      }
+      this.store.setCellValue(sel.r, sel.c, d as any, { asGiven: this.store.editingGivenMode() });
     }
   }
 

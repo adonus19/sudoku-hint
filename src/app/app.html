@@ -5,7 +5,6 @@
   <span class="brand">Sudoku Solver</span>
   <span class="spacer"></span>
 
-  <!-- Desktop controls -->
   <div class="bar-controls hide-sm">
     <button
       mat-button
@@ -15,6 +14,12 @@
       mat-button
       (click)="openImport()"
     ><mat-icon>file_upload</mat-icon> Import</button>
+    <!-- NEW: Import Image -->
+    <button
+      mat-button
+      (click)="openImportImage()"
+    ><mat-icon>photo_camera</mat-icon> Photo</button>
+
     <button
       mat-button
       (click)="store.resetPencils()"
@@ -27,20 +32,17 @@
       [checked]="store.editingGivenMode()"
       (change)="store.toggleEditingGivenMode()"
     >Initial</mat-slide-toggle>
-
-    <!-- NEW: Full-screen board toggle -->
     <mat-slide-toggle
       [checked]="store.fullScreenBoard()"
       (change)="store.toggleFullScreenBoard()"
     >Full screen</mat-slide-toggle>
-
     <button
       mat-button
       (click)="store.resetBoard()"
     ><mat-icon>restart_alt</mat-icon> Reset</button>
   </div>
 
-  <!-- Mobile: compact + overflow -->
+  <!-- mobile overflow menu: add Photo -->
   <div class="bar-controls show-sm">
     <button
       mat-icon-button
@@ -49,24 +51,20 @@
     ><mat-icon>lightbulb</mat-icon></button>
     <button
       mat-icon-button
-      matTooltip="Pencil mode"
+      matTooltip="Pencil"
       [class.on]="store.pencilMode()"
       (click)="store.togglePencilMode()"
     ><mat-icon>edit_note</mat-icon></button>
     <button
       mat-icon-button
-      matTooltip="Initial entry"
+      matTooltip="Initial"
       [class.on]="store.editingGivenMode()"
       (click)="store.toggleEditingGivenMode()"
     ><mat-icon>flag</mat-icon></button>
-
     <button
       mat-icon-button
       [matMenuTriggerFor]="more"
-      aria-label="More"
-    >
-      <mat-icon>more_vert</mat-icon>
-    </button>
+    ><mat-icon>more_vert</mat-icon></button>
     <mat-menu #more="matMenu">
       <button
         mat-menu-item
@@ -74,9 +72,12 @@
       ><mat-icon>file_upload</mat-icon><span>Import</span></button>
       <button
         mat-menu-item
+        (click)="openImportImage()"
+      ><mat-icon>photo_camera</mat-icon><span>Import photo</span></button>
+      <button
+        mat-menu-item
         (click)="store.resetPencils()"
       ><mat-icon>layers_clear</mat-icon><span>Reset pencils</span></button>
-      <!-- NEW: Full-screen board toggle in overflow -->
       <button
         mat-menu-item
         (click)="store.toggleFullScreenBoard()"
@@ -92,9 +93,8 @@
   </div>
 </mat-toolbar>
 
-<!-- CENTER the content -->
 <div class="container center">
   <app-board></app-board>
   <app-number-pad class="pad-sticky"></app-number-pad>
-  <div class="tips">Hotkeys: <kbd>.</kbd> toggle pencil mode • <kbd>Shift+Backspace</kbd> clear pencils</div>
+  <div class="tips">Tip: better results with flat, bright photos.</div>
 </div>

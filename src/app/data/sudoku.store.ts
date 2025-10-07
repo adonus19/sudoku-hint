@@ -118,6 +118,11 @@ export class SudokuStore {
     this._board.set(computeCandidates(next));
   }
 
+  togglePencilDigitIfEnabled(r: number, c: number, d: number, enabled: boolean) {
+    if (!enabled) return;
+    this.togglePencilDigit(r, c, d);
+  }
+
   /** Clear all pencils for a cell (why: quick cleanup) */
   clearPencils(r: number, c: number) {
     const next = this._board().map(row => row.map(cell => ({
@@ -148,5 +153,26 @@ export class SudokuStore {
     this._hl.set(null);
     // keep selection on target for continuity
     this._selected.set({ r: h.target.r, c: h.target.c });
+  }
+
+  loadFromMatrix(matrix: number[][]) {
+    const next = this._board().map(row => row.map(cell => ({
+      ...cell,
+      value: 0 as Digit,
+      given: false,
+      candidates: new Set<number>(),
+      suppressed: new Set<number>(),
+      manualCands: new Set<number>()
+    })));
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const v = Number(matrix[r]?.[c] ?? 0);
+      if (v >= 1 && v <= 9) {
+        next[r][c].value = v as any;
+        next[r][c].given = true;
+      }
+    }
+    this._board.set(next);
+    this._editingGivenMode.set(false);
+    this.recomputeCandidates();
   }
 }

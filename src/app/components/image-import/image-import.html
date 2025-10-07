@@ -1,0 +1,83 @@
+<h2 class="title">Import from Photo</h2>
+
+<div class="picker">
+  <input
+    #file
+    accept="image/*"
+    type="file"
+    capture="environment"
+    hidden
+    (change)="onFile($event)"
+  />
+  <button
+    mat-stroked-button
+    (click)="file.click()"
+  >
+    <mat-icon>photo_library</mat-icon>&nbsp;Choose image
+  </button>
+  <button
+    mat-stroked-button
+    (click)="takePhoto(file)"
+  >
+    <mat-icon>photo_camera</mat-icon>&nbsp;Use camera
+  </button>
+  @if (fileName) {
+  <p class="filename">{{ fileName }}</p>
+  }
+</div>
+
+<mat-divider></mat-divider>
+
+@if (busy()) {
+<div class="loading">
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  <div class="hint">Analyzing photo…</div>
+</div>
+}
+
+@if (result()) {
+<div class="preview">
+  <div class="col">
+    <div class="lbl">Detected grid (warped)</div>
+    <canvas
+      [attr.width]="900"
+      [attr.height]="900"
+      id="ocr-out"
+      class="canvas"
+    ></canvas>
+  </div>
+  <div class="col">
+    <div class="lbl">Parsed (0 = empty)</div>
+    <div class="grid">
+
+      @for (r of rows; let ri = $index; track $index) {
+      <div class="row">
+        @for (c of cols; let ci = $index; track $index) {
+        <div
+          class="cell"
+          [class.sep-r]="(ci%3)===0"
+          [class.sep-b]="(ri%3)===0"
+        >
+          {{ result()!.matrix[ri][ci] || '·' }}
+        </div>
+        }
+      </div>
+      }
+    </div>
+
+    <div class="post">
+      <button
+        mat-stroked-button
+        (click)="retry()"
+      ><mat-icon>refresh</mat-icon>&nbsp;Try another</button>
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="import()"
+      ><mat-icon>check</mat-icon>&nbsp;Import to board</button>
+    </div>
+
+    <div class="log-tip">Open DevTools console for detailed OCR logs.</div>
+  </div>
+</div>
+}

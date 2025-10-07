@@ -16,6 +16,7 @@ import { HintService } from './hint/hint.service';
 import { HintDialog } from './components/hint-dialog/hint-dialog';
 import { HintSheet } from './components/hint-sheet/hint-sheet';
 import { NumberPad } from './controls/number-pad/number-pad';
+import { ImageImport } from './components/image-import/image-import';
 
 @Component({
   selector: 'app-root',
@@ -31,7 +32,9 @@ export class App {
   #hints = inject(HintService);
   #bp = inject(BreakpointObserver);
 
-  openImport() { this.#dialog.open(ImportDialog, { width: '520px' }); }
+  openImport() {
+    this.#dialog.open(ImportDialog, { width: '520px' });
+  }
 
   openHint() {
     const hint = this.#hints.findNextHint(this.store.board());
@@ -47,5 +50,9 @@ export class App {
         position: { right: '16px', bottom: '16px' }, panelClass: ['hint-dialog-floating'], data: hint
       });
     }
+  }
+
+  openImportImage() {
+    this.#dialog.open(ImageImport, { width: '960px', maxWidth: '96vw', height: 'min(92vh, 1100px)', maxHeight: '92vh', autoFocus: false, panelClass: ['photo-dialog'] });
   }
 }

@@ -78,3 +78,19 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
     height: 56px;
   }
 }
+
+.photo-dialog .mat-mdc-dialog-surface {
+  border-radius: 12px;
+}
+
+.photo-dialog .mat-mdc-dialog-content {
+  padding: 16px 16px 0;
+  /* breathing room left/right */
+  max-height: calc(92vh - 64px);
+  /* keep footer visible */
+  overflow: auto;
+}
+
+.photo-dialog .mat-mdc-dialog-actions {
+  padding: 8px 16px 16px;
+}
