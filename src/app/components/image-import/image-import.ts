@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -32,37 +32,50 @@ export class ImageImport {
   }
 
   onFile(ev: Event) {
-    const f = (ev.target as HTMLInputElement).files?.[0];
-    this.fileName = f ? f.name : '';
-    console.log('Selected file:', this.fileName);
-
     const file = (ev.target as HTMLInputElement).files?.[0];
+    this.fileName = file ? file.name : '';
     if (!file) return;
+
     this.busy.set(true);
     this.result.set(null);
+
     this.#ocr.process(file).then(res => {
       this.result.set(res);
       this.busy.set(false);
 
-      const canvas = document.getElementById('ocr-out') as HTMLCanvasElement;
-      if (res?.preview) {
-        const cv = (window as any).cv as any;
-        cv.imshow(canvas, res.preview); // why: quick preview for user validation
-      } else {
-        const ctx = canvas.getContext('2d')!;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.font = '20px Arial';
-        ctx.fillText('No preview available', 10, 50);
-      }
+      // why: canvas is created by @if(result()); draw on next frame (no injection context needed)
+      requestAnimationFrame(() => this.#drawPreviewAndOverlay());
+    }).catch(err => {
+      console.error('[Import] OCR failed', err);
+      this.busy.set(false);
+    });
+  }
 
-      // paint warped preview
-      // if (res?.warped) {
-      //   const cv = (window as any).cv as any;
-      //   const mat = res.warped as any;
-      //   const canvas = document.getElementById('ocr-out') as HTMLCanvasElement;
-      //   cv.imshow(canvas, mat); // why: quick preview for user validation
-      // }
-    }).catch(() => this.busy.set(false));
+  #drawPreviewAndOverlay() {
+    const res = this.result();
+    if (!res) return;
+
+    const cv = (window as any).cv as any;
+    const canvas = document.getElementById('ocr-out') as HTMLCanvasElement | null;
+    if (!canvas) return;
+
+    const mat = res.preview ?? res.warped;
+    if (mat) cv.imshow(canvas, mat);
+
+    const ctx = canvas.getContext('2d')!;
+    const cell = Math.floor(canvas.width / 9);
+    ctx.save();
+    ctx.font = '28px Roboto, Arial';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const d = res.matrix[r][c];
+        if (!d) continue;
+        ctx.fillText(String(d), c * cell + cell / 2, r * cell + cell / 2);
+      }
+    }
+    ctx.restore();
   }
 
   retry() { this.result.set(null); }
