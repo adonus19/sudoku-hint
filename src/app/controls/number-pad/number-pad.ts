@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { SudokuStore } from '../../data/sudoku.store';
@@ -13,7 +13,19 @@ export class NumberPad {
   store = inject(SudokuStore);
   digits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+  countByDigit = computed(() => {
+    const counts = Array(10).fill(0);
+    const b = this.store.board();
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const v = b[r][c].value as number | 0;
+      if (v >= 1 && v <= 9) counts[v]++;
+    }
+    return counts as ReadonlyArray<number>;
+  });
+
   pressDigit(d: number) {
+    // prevent value entry when exhausted (pencils still allowed)
+    if (!this.store.pencilMode() && this.isDigitExhausted(d)) return;
     const sel = this.store.selected();
     if (!sel) return;
     if (this.store.pencilMode()) {
@@ -31,5 +43,10 @@ export class NumberPad {
 
   togglePencil() {
     this.store.togglePencilMode();
+  }
+
+  isDigitExhausted(d: number): boolean {
+    // Only values count; pencils don’t.
+    return this.countByDigit()[d] >= 9;
   }
 }

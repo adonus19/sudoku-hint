@@ -17,6 +17,7 @@ import { HintDialog } from './components/hint-dialog/hint-dialog';
 import { HintSheet } from './components/hint-sheet/hint-sheet';
 import { NumberPad } from './controls/number-pad/number-pad';
 import { ImageImport } from './components/image-import/image-import';
+import { Difficulty, NewPuzzleDialog, Symmetry } from './components/new-puzzle-dialog/new-puzzle-dialog';
 
 @Component({
   selector: 'app-root',
@@ -54,5 +55,13 @@ export class App {
 
   openImportImage() {
     this.#dialog.open(ImageImport, { width: '960px', maxWidth: '96vw', height: 'min(92vh, 1100px)', maxHeight: '92vh', autoFocus: false, panelClass: ['photo-dialog'] });
+  }
+
+  openNewPuzzle() {
+    const ref = this.#dialog.open(NewPuzzleDialog, { width: '480px' });
+    ref.afterClosed().subscribe((res?: { difficulty: Difficulty; symmetry: Symmetry }) => {
+      if (!res) return;
+      this.store.newPuzzle(res.difficulty, res.symmetry);
+    });
   }
 }

@@ -36,13 +36,14 @@
         <button
           class="cell"
           role="gridcell"
-          [disabled]="isGiven(r,c) && !store.editingGivenMode()"
           [ngClass]="cellClasses(r,c)"
+          [class.readonly]="isGiven(r,c) && !store.editingGivenMode()"
           (click)="onCellClick(r,c)"
           (mouseenter)="onHover(r,c,true)"
           (mouseleave)="onHover(r,c,false)"
           [attr.aria-selected]="isSelected(r,c)"
           [attr.aria-label]="ariaLabel(r,c)"
+          [attr.aria-disabled]="isGiven(r,c) && !store.editingGivenMode() ? 'true' : null"
         >
 
           @if (hasValue(r,c)) {

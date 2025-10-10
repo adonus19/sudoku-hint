@@ -103,6 +103,7 @@ export class Board {
     const hlBox = !!ctx.coord && ctx.box === cell.box;
     const match = !!ctx.value && cell.value === ctx.value;
     const conflict = this.store.conflicts().cells.has(`${r},${c}`);
+    const solutionError = this.store.isErrorCell(r, c);
     const h = this.store.highlight();
     const hintRow = h?.rows?.includes(r) ?? false;
     const hintCol = h?.cols?.includes(c) ?? false;
@@ -117,6 +118,7 @@ export class Board {
       'hl-box': hlBox,
       match,
       conflict,
+      error: solutionError,
       'hint-row': hintRow,
       'hint-col': hintCol,
       'hint-box': hintBox,

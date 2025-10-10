@@ -2,6 +2,9 @@ import { Injectable, computed, signal } from '@angular/core';
 import { Board, Digit, Coord } from './sudoku.types';
 import { createEmptyBoard, setValue, clearValue, detectConflicts, parseBoardString, computeCandidates } from './sudoku.utils';
 import { HintHighlight, HintResult } from '../hint/hint.types';
+import { solveSudoku } from './sudoku.solver';
+import { generatePuzzle } from './sudoku.generator';
+import type { Difficulty } from '../components/new-puzzle-dialog/new-puzzle-dialog';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +17,15 @@ export class SudokuStore {
   private _pencilMode = signal<boolean>(false);
   private _hl = signal<HintHighlight | null>(null);
   private _fullScreenBoard = signal<boolean>(false);
+  private _solution = signal<number[][] | null>(null);
+
+  private _pool = new Map<Difficulty, Board[]>(); // small pregen cache
+  private _recentHashes = signal<Record<Difficulty, string[]>>(
+    (() => {
+      try { return JSON.parse(localStorage.getItem('sdk_recent_hashes') || '{}'); }
+      catch { return {}; }
+    })() as any
+  );
 
   board = this._board.asReadonly();
   selected = this._selected.asReadonly();
@@ -23,6 +35,7 @@ export class SudokuStore {
   fullScreenBoard = this._fullScreenBoard.asReadonly();
 
   conflicts = computed(() => detectConflicts(this._board()));
+  solution = this._solution.asReadonly();
 
   resetBoard() {
     this._board.set(createEmptyBoard());
@@ -30,6 +43,7 @@ export class SudokuStore {
     this._editingGivenMode.set(true);
     this._pencilMode.set(false);
     this._hl.set(null);
+    this._solution.set(null);
   }
 
   toggleFullScreenBoard() {
@@ -38,6 +52,12 @@ export class SudokuStore {
 
   toggleEditingGivenMode() {
     this._editingGivenMode.update(v => !v);
+    if (!this._editingGivenMode()) {
+      this.computeSolutionFromGivens();
+    } else {
+      this._solution.set(null);
+    }
+
   }
   togglePencilMode() {
     this._pencilMode.update(v => !v);
@@ -68,6 +88,7 @@ export class SudokuStore {
     this._selected.set({ r: 0, c: 0 });
     this._editingGivenMode.set(false);
     this.recomputeCandidates();
+    this.computeSolutionFromGivens();
   }
 
   recomputeCandidates() {
@@ -174,5 +195,124 @@ export class SudokuStore {
     this._board.set(next);
     this._editingGivenMode.set(false);
     this.recomputeCandidates();
+    this.computeSolutionFromGivens();
+  }
+
+  isErrorCell(r: number, c: number): boolean {
+    if (this._editingGivenMode()) return false;
+
+    const sol = this._solution();
+    if (!sol) return false;
+
+    const cell = this._board()[r][c];
+    if (cell.given || !cell.value) return false;
+
+    return cell.value !== sol[r][c];
+  }
+
+  newPuzzle(difficulty: Difficulty = 'medium', symmetry: 'central' | 'diagonal' | 'none' = 'central') {
+    // try pool first
+    const board = this.getFromPoolOrGenerate(difficulty, symmetry);
+
+    // load board into store
+    this._board.set(board);
+    this._selected.set({ r: 0, c: 0 });
+    this._editingGivenMode.set(false);
+    this._hl.set(null);
+    this._solution.set(null); // will be computed when leaving given mode (if you adopted solution feature)
+    this.recomputeCandidates();
+    this.computeSolutionFromGivens();
+
+    // prewarm for next time (non-blocking)
+    setTimeout(() => this.prewarmCache(difficulty, symmetry), 0);
+  }
+
+  private puzzleHash(b: Board): string {
+    let s = '';
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) s += (b[r][c].value || 0);
+    return s;
+  }
+
+  // keep recent hashes bounded (e.g., 50 per difficulty)
+  private pushRecent(d: Difficulty, hash: string) {
+    const cur = { ...(this._recentHashes() as any) } as Record<Difficulty, string[]>;
+    const list = (cur[d] ?? []).filter(h => h !== hash);
+    list.unshift(hash);
+    while (list.length > 50) list.pop();
+    cur[d] = list;
+    this._recentHashes.set(cur);
+    try { localStorage.setItem('sdk_recent_hashes', JSON.stringify(cur)); } catch { }
+  }
+
+  private isRecent(d: Difficulty, hash: string) {
+    const cur = this._recentHashes();
+    return (cur?.[d] ?? []).includes(hash);
+  }
+
+  private getFromPoolOrGenerate(difficulty: Difficulty, symmetry: 'central' | 'diagonal' | 'none'): Board {
+    const list = this._pool.get(difficulty) ?? [];
+    // fetch a non-recent board, if present
+    while (list.length) {
+      const b = list.shift()!;
+      const h = this.puzzleHash(b);
+      if (!this.isRecent(difficulty, h)) {
+        this._pool.set(difficulty, list);
+        this.pushRecent(difficulty, h);
+        return b;
+      }
+    }
+
+    // otherwise, generate fresh until unique (cap attempts)
+    for (let tries = 0; tries < 8; tries++) {
+      const { board } = generatePuzzle({ difficulty, symmetry });
+      const h = this.puzzleHash(board);
+      if (!this.isRecent(difficulty, h)) {
+        this.pushRecent(difficulty, h);
+        return board;
+      }
+    }
+    // fallback: last generated
+    const { board } = generatePuzzle({ difficulty, symmetry });
+    this.pushRecent(difficulty, this.puzzleHash(board));
+    return board;
+  }
+
+  /** Pre-generate a few puzzles per difficulty to make "New" feel instant */
+  prewarmCache(difficulty: Difficulty, symmetry: 'central' | 'diagonal' | 'none') {
+    const targetSize = 3; // small to avoid perf hit
+    const list = this._pool.get(difficulty) ?? [];
+    if (list.length >= targetSize) return;
+
+    // generate 1–2 more asynchronously
+    const need = targetSize - list.length;
+    let produced = 0;
+
+    const tick = () => {
+      if (produced >= need) {
+        this._pool.set(difficulty, list);
+        return;
+      }
+      const { board } = generatePuzzle({ difficulty, symmetry });
+      const h = this.puzzleHash(board);
+      if (!this.isRecent(difficulty, h) && !list.some(b => this.puzzleHash(b) === h)) {
+        list.push(board);
+        produced++;
+      }
+      setTimeout(tick, 0);
+    };
+    setTimeout(tick, 0);
+  }
+
+  private computeSolutionFromGivens() {
+    const givensOnly = this._board().map(row => row.map(cell => ({
+      ...cell,
+      value: cell.given ? cell.value : 0 as Digit,
+      candidates: new Set<number>(),
+      suppressed: new Set<number>(),
+      manualCands: new Set<number>()
+    }))) as Board;
+
+    const solved = solveSudoku(givensOnly);
+    this._solution.set(solved);
   }
 }

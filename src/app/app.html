@@ -40,6 +40,10 @@
       mat-button
       (click)="store.resetBoard()"
     ><mat-icon>restart_alt</mat-icon> Reset</button>
+    <button
+      mat-button
+      (click)="openNewPuzzle()"
+    ><mat-icon>auto_awesome</mat-icon> New puzzle…</button>
   </div>
 
   <!-- mobile overflow menu: add Photo -->
@@ -89,6 +93,12 @@
         mat-menu-item
         (click)="store.resetBoard()"
       ><mat-icon>restart_alt</mat-icon><span>Reset board</span></button>
+      <button
+        mat-menu-item
+        (click)="openNewPuzzle()"
+      >
+        <mat-icon>auto_awesome</mat-icon><span>New puzzle…</span>
+      </button>
     </mat-menu>
   </div>
 </mat-toolbar>

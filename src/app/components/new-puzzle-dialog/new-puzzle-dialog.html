@@ -1,0 +1,35 @@
+<h2 mat-dialog-title>New Puzzle</h2>
+<div
+  mat-dialog-content
+  class="col"
+>
+  <label class="lbl">Difficulty</label>
+  <mat-radio-group [(ngModel)]="difficulty">
+    <mat-radio-button value="easy">Easy</mat-radio-button>
+    <mat-radio-button value="medium">Medium</mat-radio-button>
+    <mat-radio-button value="hard">Hard</mat-radio-button>
+    <mat-radio-button value="expert">Expert</mat-radio-button>
+  </mat-radio-group>
+
+  <label class="lbl">Symmetry</label>
+  <mat-radio-group [(ngModel)]="symmetry">
+    <mat-radio-button value="central">Central</mat-radio-button>
+    <mat-radio-button value="diagonal">Diagonal</mat-radio-button>
+    <mat-radio-button value="none">None</mat-radio-button>
+  </mat-radio-group>
+</div>
+
+<div
+  mat-dialog-actions
+  align="end"
+>
+  <button
+    mat-button
+    (click)="ref.close()"
+  >Cancel</button>
+  <button
+    mat-flat-button
+    color="primary"
+    (click)="create()"
+  >Create</button>
+</div>

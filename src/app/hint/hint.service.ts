@@ -10,9 +10,7 @@ const unitName = (kind: UnitKind, idx: number) =>
     : kind === 'col' ? `column ${idx + 1}`
       : `box ${idx + 1}`;
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class HintService {
 
   findNextHint(board: Board): HintResult | null {
@@ -37,35 +35,35 @@ export class HintService {
     const lcClaim = this.lockedCandidatesClaiming(b);
     if (lcClaim) return lcClaim;
 
-    // 4) Naked Pair (row, col, box)
+    // 4) Naked Pair
     for (const kind of ['row', 'col', 'box'] as UnitKind[]) {
       const np = this.nakedPair(b, kind);
       if (np) return np;
     }
 
-    // 5) Hidden Pair (row, col, box)
+    // 5) Hidden Pair
     for (const kind of ['row', 'col', 'box'] as UnitKind[]) {
       const hp = this.hiddenPair(b, kind);
       if (hp) return hp;
     }
 
-    // 6) BUG (BUG+1)
+    // 6) BUG
     const bug = this.bug(b);
     if (bug) return bug;
 
-    // 7) Swordfish (rows, then cols)  ← added here
+    // 7) Swordfish (rows, then cols)
     const sfRow = this.swordfish(b, 'row');
     if (sfRow) return sfRow;
     const sfCol = this.swordfish(b, 'col');
     if (sfCol) return sfCol;
 
     // 8) Jellyfish (rows, then cols)
-    const jfRow = this.swordfish(b, 'row');
+    const jfRow = this.jellyfish(b, 'row');
     if (jfRow) return jfRow;
-    const jfCol = this.swordfish(b, 'col');
+    const jfCol = this.jellyfish(b, 'col');
     if (jfCol) return jfCol;
 
-    // 9) Skyscraper (rows, then cols)
+    // 9) Skyscraper
     const skyRow = this.skyscraper(b, 'row');
     if (skyRow) return skyRow;
     const skyCol = this.skyscraper(b, 'col');
@@ -74,6 +72,14 @@ export class HintService {
     // 10) XY-Wing
     const xy = this.xyWing(b);
     if (xy) return xy;
+
+    // 11) W-Wing
+    const ww = this.wWing(b);
+    if (ww) return ww;
+
+    // 12) XYZ-Wing
+    const xyz = this.xyzWing(b);
+    if (xyz) return xyz;
 
     return null;
   }
@@ -90,10 +96,7 @@ export class HintService {
         highlight: { rows: [r], cols: [c], boxes: [board[r][c].box], cells: [{ r, c }], candTargets: [{ r, c, d }] }
       }
     ];
-    return {
-      kind: 'Naked Single', digit: d, target: { r, c }, steps,
-      apply: (b) => setValueKeepCands(b, r, c, d)
-    };
+    return { kind: 'Naked Single', digit: d, target: { r, c }, steps, apply: (b) => setValueKeepCands(b, r, c, d) };
   }
 
   private hiddenSingle(board: Board, kind: UnitKind): HintResult | null {
@@ -127,17 +130,14 @@ export class HintService {
   }
 
   // ---------- Locked Candidates ----------
-  // Pointing: in a BOX, if digit d candidates sit only in one ROW or COL of that box,
-  // eliminate d from that entire ROW/COL outside the box.
   private lockedCandidatesPointing(board: Board): HintResult | null {
     for (let box = 0; box < 9; box++) {
       const cells = boxCells(box);
       for (let d = 1; d <= 9; d++) {
         const spots = cells.filter(({ r, c }) => !board[r][c].value && board[r][c].candidates.has(d));
-        if (spots.length < 2) continue; // need at least 2 to be interesting
+        if (spots.length < 2) continue;
         const rows = uniq(spots.map(s => s.r));
         const cols = uniq(spots.map(s => s.c));
-        // confined to one row?
         if (rows.length === 1) {
           const r = rows[0];
           const eliminations: Array<{ r: number; c: number; d: number }> = [];
@@ -147,7 +147,6 @@ export class HintService {
           }
           if (eliminations.length) return this.buildLockedPointing(board, 'row', box, r, d, spots, eliminations);
         }
-        // confined to one col?
         if (cols.length === 1) {
           const c = cols[0];
           const eliminations: Array<{ r: number; c: number; d: number }> = [];
@@ -183,8 +182,7 @@ export class HintService {
       }
     ];
     return {
-      kind: 'Locked Candidates', // label not used here; we’ll just return a generic kind string
-      // To keep existing structure, we still fill fields; target is arbitrary (first spot)
+      kind: 'Locked Candidates',
       digit: d,
       target: boxSpots[0],
       steps,
@@ -192,8 +190,6 @@ export class HintService {
     };
   }
 
-  // Claiming: in a ROW/COL, if digit d candidates sit only within one BOX,
-  // eliminate d from that BOX outside the ROW/COL.
   private lockedCandidatesClaiming(board: Board): HintResult | null {
     for (const kind of ['row', 'col'] as UnitKind[]) {
       for (let idx = 0; idx < 9; idx++) {
@@ -208,7 +204,7 @@ export class HintService {
             const box = boxes[0];
             const eliminations: Array<{ r: number; c: number; d: number }> = [];
             for (const bc of boxCells(box)) {
-              if ((kind === 'row' && bc.r === idx) || (kind === 'col' && bc.c === idx)) continue; // skip inside the line
+              if ((kind === 'row' && bc.r === idx) || (kind === 'col' && bc.c === idx)) continue;
               if (!board[bc.r][bc.c].value && board[bc.r][bc.c].candidates.has(d)) eliminations.push({ r: bc.r, c: bc.c, d });
             }
             if (eliminations.length) {
@@ -235,7 +231,6 @@ export class HintService {
   }
 
   // ---------- Pairs ----------
-  // Naked Pair: two cells in a unit share the same two candidates -> remove those from other cells in unit.
   private nakedPair(board: Board, kind: UnitKind): HintResult | null {
     for (let idx = 0; idx < 9; idx++) {
       const cells: Array<{ r: number; c: number; set: string; cand: number[] }> = [];
@@ -276,10 +271,8 @@ export class HintService {
     return null;
   }
 
-  // Hidden Pair: two digits appear exactly twice in a unit -> in those cells, keep only those two.
   private hiddenPair(board: Board, kind: UnitKind): HintResult | null {
     for (let idx = 0; idx < 9; idx++) {
-      // map digit -> cells
       const occ: Map<number, Array<{ r: number; c: number }>> = new Map();
       for (let d = 1; d <= 9; d++) occ.set(d, []);
       forEachUnitCell(kind, idx, (r, c) => {
@@ -293,7 +286,7 @@ export class HintService {
           const [d1, cells1] = digits[i];
           const [d2, cells2] = digits[j];
           if (sameCellList(cells1, cells2)) {
-            const spots = cells1; // same as cells2
+            const spots = cells1;
             const keeps = [d1, d2];
             const trims: Array<{ r: number; c: number; d: number }> = [];
             for (const s of spots) {
@@ -321,14 +314,8 @@ export class HintService {
     return null;
   }
 
-  /**
-   * BUG (BUG+1):
-   * All unsolved cells are bi-value except ONE cell S with exactly 3 candidates.
-   * When counting candidate digits globally, exactly one digit has an odd total.
-   * That digit must be the value at S.
-   */
+  // ---------- BUG ----------
   private bug(board: Board): HintResult | null {
-    // Collect unsolved cells and detect the single tri-value exception
     const unsolved: Array<{ r: number; c: number; cand: number[] }> = [];
     let tri: { r: number; c: number; cand: number[] } | null = null;
 
@@ -337,20 +324,19 @@ export class HintService {
         const cell = board[r][c];
         if (cell.value) continue;
         const cand = Array.from(cell.candidates);
-        if (cand.length === 0) return null;                 // not a valid BUG state
+        if (cand.length === 0) return null;
         if (cand.length === 2) {
           unsolved.push({ r, c, cand });
         } else if (cand.length === 3) {
-          if (tri) return null;                              // more than one exception
+          if (tri) return null;
           tri = { r, c, cand };
         } else {
-          return null;                                       // has >3 candidates → not BUG+1
+          return null;
         }
       }
     }
-    if (!tri) return null;                                   // need exactly one tri-value cell
+    if (!tri) return null;
 
-    // Global parity count per digit
     const count = new Map<number, number>();
     for (let d = 1; d <= 9; d++) count.set(d, 0);
     for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
@@ -363,9 +349,8 @@ export class HintService {
     if (oddDigits.length !== 1) return null;
 
     const dMust = oddDigits[0];
-    if (!tri.cand.includes(dMust)) return null;              // parity digit must be in tri cell
+    if (!tri.cand.includes(dMust)) return null;
 
-    // Optional: highlight all occurrences of dMust to visualize odd parity
     const allDCells: Array<{ r: number; c: number; d: number }> = [];
     for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
       const cell = board[r][c];
@@ -399,27 +384,21 @@ export class HintService {
     };
   }
 
-  // ---------- Swordfish (size 3 fish) ----------
+  // ---------- Fish ----------
   private swordfish(board: Board, orientation: 'row' | 'col'): HintResult | null {
-    // orientation 'row': choose 3 rows; candidate columns union size == 3; eliminate in those columns from other rows
-    // orientation 'col': symmetric
     for (let d = 1; d <= 9; d++) {
       const unitIndices = [...Array(9).keys()];
       const combos = chooseCombos(unitIndices, 3);
       for (const trio of combos) {
         if (orientation === 'row') {
-          // map each row -> set of columns where d is a candidate (limit 2..3)
           const rowCols: Array<{ r: number; cols: number[] }> = trio.map(r => ({
-            r,
-            cols: colsWithDigit(board, r, d)
+            r, cols: colsWithDigit(board, r, d)
           }));
           if (rowCols.some(x => x.cols.length === 0 || x.cols.length > 3)) continue;
           const unionCols = uniq(rowCols.flatMap(x => x.cols)).sort((a, b) => a - b);
           if (unionCols.length !== 3) continue;
-          // ensure each row's cols ⊆ union
           if (!rowCols.every(x => x.cols.every(c => unionCols.includes(c)))) continue;
 
-          // eliminations: in unionCols, for all rows NOT in trio, remove d
           const elim: Array<{ r: number; c: number; d: number }> = [];
           for (let r = 0; r < 9; r++) {
             if (trio.includes(r)) continue;
@@ -445,10 +424,8 @@ export class HintService {
           ];
           return { kind: 'Swordfish', digit: d, target: { r: rowCols[0].r, c: rowCols[0].cols[0] }, steps, apply: (b) => removeCandidates(b, elim) };
         } else {
-          // orientation === 'col'
           const colRows: Array<{ c: number; rows: number[] }> = trio.map(c => ({
-            c,
-            rows: rowsWithDigit(board, c, d)
+            c, rows: rowsWithDigit(board, c, d)
           }));
           if (colRows.some(x => x.rows.length === 0 || x.rows.length > 3)) continue;
           const unionRows = uniq(colRows.flatMap(x => x.rows)).sort((a, b) => a - b);
@@ -485,22 +462,17 @@ export class HintService {
     return null;
   }
 
-  /** Jellyfish (size 4): like Swordfish but with 4 rows/cols and union of 4 counterpart cols/rows */
   private jellyfish(board: Board, orientation: 'row' | 'col'): HintResult | null {
     for (let d = 1; d <= 9; d++) {
       const unitIdx = [...Array(9).keys()];
       for (const quad of chooseCombos(unitIdx, 4)) {
         if (orientation === 'row') {
-          // rows → collect candidate columns per row (2..4)
-          const rowCols: Array<{ r: number; cols: number[] }> = quad.map(r => ({
-            r, cols: colsWithDigit(board, r, d)
-          }));
+          const rowCols: Array<{ r: number; cols: number[] }> = quad.map(r => ({ r, cols: colsWithDigit(board, r, d) }));
           if (rowCols.some(x => x.cols.length === 0 || x.cols.length > 4)) continue;
           const unionCols = uniq(rowCols.flatMap(x => x.cols)).sort((a, b) => a - b);
           if (unionCols.length !== 4) continue;
           if (!rowCols.every(x => x.cols.every(c => unionCols.includes(c)))) continue;
 
-          // eliminate d from unionCols in rows not in the quad
           const elim: Array<{ r: number; c: number; d: number }> = [];
           for (let r = 0; r < 9; r++) {
             if (quad.includes(r)) continue;
@@ -526,10 +498,7 @@ export class HintService {
           ];
           return { kind: 'Jellyfish', digit: d, target: fishCells[0], steps, apply: (b) => removeCandidates(b, elim) };
         } else {
-          // columns → collect candidate rows per column (2..4)
-          const colRows: Array<{ c: number; rows: number[] }> = quad.map(c => ({
-            c, rows: rowsWithDigit(board, c, d)
-          }));
+          const colRows: Array<{ c: number; rows: number[] }> = quad.map(c => ({ c, rows: rowsWithDigit(board, c, d) }));
           if (colRows.some(x => x.rows.length === 0 || x.rows.length > 4)) continue;
           const unionRows = uniq(colRows.flatMap(x => x.rows)).sort((a, b) => a - b);
           if (unionRows.length !== 4) continue;
@@ -565,22 +534,16 @@ export class HintService {
     return null;
   }
 
-  /**
-   * Skyscraper on digit d:
-   * orientation 'row': pick two rows r1,r2 that each form a strong link (exactly two cols),
-   * sharing one column cS; the other columns cA (in r1) and cB (in r2) are the "towers".
-   * Any cell that sees BOTH (r1,cA) and (r2,cB) cannot be d.
-   */
+  // ---------- Skyscraper ----------
   private skyscraper(board: Board, orientation: 'row' | 'col'): HintResult | null {
-    // peers helper (local, cached)
     const peersCache = new Map<string, Set<string>>();
     const peersOf = (r: number, c: number): Set<string> => {
       const k = `${r},${c}`;
       if (peersCache.has(k)) return peersCache.get(k)!;
       const s = new Set<string>();
       for (let i = 0; i < 9; i++) {
-        if (i !== c) s.add(`${r},${i}`); // row
-        if (i !== r) s.add(`${i},${c}`); // col
+        if (i !== c) s.add(`${r},${i}`);
+        if (i !== r) s.add(`${i},${c}`);
       }
       const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
       for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) {
@@ -591,26 +554,20 @@ export class HintService {
       return s;
     };
 
-    // For each digit, gather strong links per unit (two spots exactly)
     for (let d = 1; d <= 9; d++) {
       if (orientation === 'row') {
-        // row strong links: map row -> [c1,c2] where only these two have candidate d
         const rowLinks: Array<{ r: number; cols: number[] }> = [];
         for (let r = 0; r < 9; r++) {
           const cols: number[] = [];
           for (let c = 0; c < 9; c++) if (!board[r][c].value && board[r][c].candidates.has(d)) cols.push(c);
           if (cols.length === 2) rowLinks.push({ r, cols });
         }
-        // pick two rows whose sets share exactly one column
         for (const [i, j] of choosePairs(rowLinks.length)) {
           const A = rowLinks[i], B = rowLinks[j];
           const shared = A.cols.filter(c => B.cols.includes(c));
           if (shared.length !== 1) continue;
-          const cS = shared[0];                            // shared column
-          const cA = A.cols.find(c => c !== cS)!;          // tower 1
-          const cB = B.cols.find(c => c !== cS)!;          // tower 2
+          const cS = shared[0], cA = A.cols.find(c => c !== cS)!, cB = B.cols.find(c => c !== cS)!;
           const t1 = { r: A.r, c: cA }, t2 = { r: B.r, c: cB };
-          // cells that see both towers
           const meet = intersectKeys(peersOf(t1.r, t1.c), peersOf(t2.r, t2.c));
           meet.delete(`${t1.r},${t1.c}`); meet.delete(`${t2.r},${t2.c}`);
           const elim: Array<{ r: number; c: number; d: number }> = [];
@@ -624,22 +581,8 @@ export class HintService {
           const steps: HintStep[] = [
             {
               title: `Skyscraper on ${d} (rows ${ROW_LETTERS[A.r]} & ${ROW_LETTERS[B.r]})`,
-              message: `Rows ${ROW_LETTERS[A.r]} and ${ROW_LETTERS[B.r]} each have a strong link on ${d} (two spots only). They share column ${cS + 1}.`,
+              message: `Rows ${ROW_LETTERS[A.r]} and ${ROW_LETTERS[B.r]} each have a strong link on ${d} and share column ${cS + 1}.`,
               highlight: { rows: [A.r, B.r], cols: [cS], cells: [{ r: A.r, c: cS }, { r: B.r, c: cS }], candTargets: [{ r: A.r, c: cS, d }, { r: B.r, c: cS, d }] }
-            },
-            {
-              title: `The towers`,
-              message: `The other endpoints are ${coord(t1.r, t1.c)} and ${coord(t2.r, t2.c)}.`,
-              highlight: {
-                rows: [A.r, B.r],
-                cols: [cA, cB],
-                cells: [t1, t2],
-                candTargets: [{ r: t1.r, c: t1.c, d }, { r: t2.r, c: t2.c, d }]
-              }
-            },
-            {
-              title: `Why it works`,
-              message: `If ${coord(t1.r, t1.c)} is not ${d}, ${coord(A.r, cS)} must be ${d}, forcing ${coord(B.r, cS)} not ${d}, so ${coord(t2.r, t2.c)} must be ${d}. Or vice-versa. Therefore any cell that sees both towers cannot be ${d}.`
             },
             {
               title: `Eliminate ${d}`,
@@ -650,7 +593,6 @@ export class HintService {
           return { kind: 'Skyscraper', digit: d, target: t1, steps, apply: (b) => removeCandidates(b, elim) };
         }
       } else {
-        // orientation === 'col': symmetric (swap r/c)
         const colLinks: Array<{ c: number; rows: number[] }> = [];
         for (let c = 0; c < 9; c++) {
           const rows: number[] = [];
@@ -661,9 +603,7 @@ export class HintService {
           const A = colLinks[i], B = colLinks[j];
           const shared = A.rows.filter(r => B.rows.includes(r));
           if (shared.length !== 1) continue;
-          const rS = shared[0];
-          const rA = A.rows.find(r => r !== rS)!;
-          const rB = B.rows.find(r => r !== rS)!;
+          const rS = shared[0], rA = A.rows.find(r => r !== rS)!, rB = B.rows.find(r => r !== rS)!;
           const t1 = { r: rA, c: A.c }, t2 = { r: rB, c: B.c };
           const meet = intersectKeys(peersOf(t1.r, t1.c), peersOf(t2.r, t2.c));
           meet.delete(`${t1.r},${t1.c}`); meet.delete(`${t2.r},${t2.c}`);
@@ -678,22 +618,8 @@ export class HintService {
           const steps: HintStep[] = [
             {
               title: `Skyscraper on ${d} (columns ${A.c + 1} & ${B.c + 1})`,
-              message: `Columns ${A.c + 1} and ${B.c + 1} each have a strong link on ${d}. They share row ${ROW_LETTERS[rS]}.`,
+              message: `Columns ${A.c + 1} and ${B.c + 1} each have a strong link on ${d} and share row ${ROW_LETTERS[rS]}.`,
               highlight: { cols: [A.c, B.c], rows: [rS], cells: [{ r: rS, c: A.c }, { r: rS, c: B.c }], candTargets: [{ r: rS, c: A.c, d }, { r: rS, c: B.c, d }] }
-            },
-            {
-              title: `The towers`,
-              message: `The other endpoints are ${coord(t1.r, t1.c)} and ${coord(t2.r, t2.c)}.`,
-              highlight: {
-                cols: [A.c, B.c],
-                rows: [rA, rB],
-                cells: [t1, t2],
-                candTargets: [{ r: t1.r, c: t1.c, d }, { r: t2.r, c: t2.c, d }]
-              }
-            },
-            {
-              title: `Why it works`,
-              message: `Either ${coord(t1.r, t1.c)} or ${coord(t2.r, t2.c)} must be ${d}, so any cell that sees both cannot be ${d}.`
             },
             {
               title: `Eliminate ${d}`,
@@ -709,33 +635,19 @@ export class HintService {
   }
 
   // ---------- XY-Wing ----------
-  /**
-   * Pattern: Pivot P with candidates {X,Y}, Pincer A with {X,Z} sharing a unit with P,
-   *          Pincer B with {Y,Z} sharing a different unit with P. Any cell that sees A and B
-   *          cannot be Z → eliminate Z there.
-   */
   private xyWing(board: Board): HintResult | null {
-    // Precompute peers for quick intersection
     const peersCache = new Map<string, Set<string>>();
-
     const peersOf = (r: number, c: number): Set<string> => {
       const k = `${r},${c}`;
       if (peersCache.has(k)) return peersCache.get(k)!;
       const set = new Set<string>();
-      for (let i = 0; i < 9; i++) {
-        if (i !== c) set.add(`${r},${i}`); // row
-        if (i !== r) set.add(`${i},${c}`); // col
-      }
+      for (let i = 0; i < 9; i++) { if (i !== c) set.add(`${r},${i}`); if (i !== r) set.add(`${i},${c}`); }
       const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
-      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) {
-        if (rr === r && cc === c) continue;
-        set.add(`${rr},${cc}`);
-      }
+      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) { if (rr === r && cc === c) continue; set.add(`${rr},${cc}`); }
       peersCache.set(k, set);
       return set;
     };
 
-    // list all bi-value cells
     const bivals: Array<{ r: number; c: number; cand: number[] }> = [];
     for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
       const cell = board[r][c];
@@ -746,7 +658,6 @@ export class HintService {
 
     for (const pivot of bivals) {
       const [X, Y] = pivot.cand;
-      // find pincers that see pivot: one with {X,Z}, one with {Y,Z}
       const pivotPeers = peersOf(pivot.r, pivot.c);
 
       const pinX: Array<{ r: number; c: number; Z: number }> = [];
@@ -759,74 +670,209 @@ export class HintService {
         const cand = Array.from(cell.candidates);
         if (cand.length !== 2) continue;
         const s = new Set(cand);
-        if (s.has(X) && !s.has(Y)) {
-          const Z = cand.find(d => d !== X)!;
-          pinX.push({ r: pr, c: pc, Z });
-        } else if (s.has(Y) && !s.has(X)) {
-          const Z = cand.find(d => d !== Y)!;
-          pinY.push({ r: pr, c: pc, Z });
-        }
+        if (s.has(X) && !s.has(Y)) { const Z = cand.find(d => d !== X)!; pinX.push({ r: pr, c: pc, Z }); }
+        else if (s.has(Y) && !s.has(X)) { const Z = cand.find(d => d !== Y)!; pinY.push({ r: pr, c: pc, Z }); }
       }
 
-      for (const a of pinX) {
-        for (const b of pinY) {
-          if (a.Z !== b.Z) continue; // need shared Z
-          const Z = a.Z;
-
-          // eliminations: cells that see both a and b, with candidate Z
-          const meet = intersectKeys(peersOf(a.r, a.c), peersOf(b.r, b.c));
-          // exclude pivot and the pincers themselves
-          meet.delete(`${pivot.r},${pivot.c}`);
-          meet.delete(`${a.r},${a.c}`);
-          meet.delete(`${b.r},${b.c}`);
-
-          const eliminations: Array<{ r: number; c: number; d: number }> = [];
-          for (const key of meet) {
-            const [er, ec] = key.split(',').map(Number);
-            const cell = board[er][ec];
-            if (!cell.value && cell.candidates.has(Z)) eliminations.push({ r: er, c: ec, d: Z });
-          }
-          if (!eliminations.length) continue;
-
-          // Build hint
-          const steps: HintStep[] = [
-            {
-              title: `XY-Wing pivot at ${coord(pivot.r, pivot.c)}`,
-              message: `Pivot ${coord(pivot.r, pivot.c)} has candidates {${X}, ${Y}}.`,
-              highlight: { cells: [{ r: pivot.r, c: pivot.c }], candTargets: [{ r: pivot.r, c: pivot.c, d: X }, { r: pivot.r, c: pivot.c, d: Y }] }
-            },
-            {
-              title: `Pincers ${coord(a.r, a.c)} and ${coord(b.r, b.c)}`,
-              message: `${coord(a.r, a.c)} has {${X}, ${Z}} and ${coord(b.r, b.c)} has {${Y}, ${Z}}. Both see the pivot.`,
-              highlight: {
-                cells: [{ r: a.r, c: a.c }, { r: b.r, c: b.c }],
-                candTargets: [
-                  { r: a.r, c: a.c, d: X }, { r: a.r, c: a.c, d: Z },
-                  { r: b.r, c: b.c, d: Y }, { r: b.r, c: b.c, d: Z }
-                ]
-              }
-            },
-            {
-              title: `Why XY-Wing works`,
-              message: `If ${coord(pivot.r, pivot.c)} is ${X}, then ${coord(b.r, b.c)} must be ${Z}. If ${coord(pivot.r, pivot.c)} is ${Y}, then ${coord(a.r, a.c)} must be ${Z}. Either way, any cell that sees both pincers cannot be ${Z}.`,
-              highlight: { cells: [{ r: a.r, c: a.c }, { r: b.r, c: b.c }] }
-            },
-            {
-              title: `Eliminate ${Z}`,
-              message: `Remove ${Z} from ${eliminations.map(e => coord(e.r, e.c)).join(', ')}.`,
-              highlight: { candTargets: eliminations }
-            }
-          ];
-
-          // pick a stable target (pivot) for post-apply selection
-          return {
-            kind: 'XY-Wing',
-            digit: Z,
-            target: { r: pivot.r, c: pivot.c },
-            steps,
-            apply: (b) => removeCandidates(b, eliminations)
-          };
+      for (const a of pinX) for (const b of pinY) {
+        if (a.Z !== b.Z) continue;
+        const Z = a.Z;
+        const meet = intersectKeys(peersOf(a.r, a.c), peersOf(b.r, b.c));
+        meet.delete(`${pivot.r},${pivot.c}`); meet.delete(`${a.r},${a.c}`); meet.delete(`${b.r},${b.c}`);
+        const eliminations: Array<{ r: number; c: number; d: number }> = [];
+        for (const key of meet) {
+          const [er, ec] = key.split(',').map(Number);
+          const cell = board[er][ec];
+          if (!cell.value && cell.candidates.has(Z)) eliminations.push({ r: er, c: ec, d: Z });
         }
+        if (!eliminations.length) continue;
+
+        const steps: HintStep[] = [
+          { title: `XY-Wing pivot at ${coord(pivot.r, pivot.c)}`, message: `Pivot has {${X}, ${Y}}.`, highlight: { cells: [{ r: pivot.r, c: pivot.c }], candTargets: [{ r: pivot.r, c: pivot.c, d: X }, { r: pivot.r, c: pivot.c, d: Y }] } },
+          { title: `Pincers`, message: `${coord(a.r, a.c)} has {${X}, ${Z}}, ${coord(b.r, b.c)} has {${Y}, ${Z}}.`, highlight: { cells: [{ r: a.r, c: a.c }, { r: b.r, c: b.c }], candTargets: [{ r: a.r, c: a.c, d: X }, { r: a.r, c: a.c, d: Z }, { r: b.r, c: b.c, d: Y }, { r: b.r, c: b.c, d: Z }] } },
+          { title: `Eliminate ${Z}`, message: `Remove ${Z} from ${eliminations.map(e => coord(e.r, e.c)).join(', ')}.`, highlight: { candTargets: eliminations } }
+        ];
+        return { kind: 'XY-Wing', digit: Z, target: { r: pivot.r, c: pivot.c }, steps, apply: (b) => removeCandidates(b, eliminations) };
+      }
+    }
+    return null;
+  }
+
+  // ---------- NEW: W-Wing ----------
+  /**
+   * Two bi-value cells A and B share the same pair {X,Y} (not peers).
+   * If there exists a *conjugate pair* (strong link) on X either:
+   *   - in some ROW r: X occurs only in columns {A.c, B.c}, or
+   *   - in some COL c: X occurs only in rows    {A.r, B.r},
+   * then Y can be eliminated from cells that see BOTH A and B.
+   */
+  private wWing(board: Board): HintResult | null {
+    // peers helper
+    const peersCache = new Map<string, Set<string>>();
+    const peersOf = (r: number, c: number): Set<string> => {
+      const k = `${r},${c}`; if (peersCache.has(k)) return peersCache.get(k)!;
+      const s = new Set<string>();
+      for (let i = 0; i < 9; i++) { if (i !== c) s.add(`${r},${i}`); if (i !== r) s.add(`${i},${c}`); }
+      const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) { if (rr === r && cc === c) continue; s.add(`${rr},${cc}`); }
+      peersCache.set(k, s); return s;
+    };
+
+    // collect bi-values
+    const bivals: Array<{ r: number; c: number; pair: [number, number] }> = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = board[r][c];
+      if (cell.value) continue;
+      const cand = Array.from(cell.candidates);
+      if (cand.length === 2) bivals.push({ r, c, pair: cand.sort((a, b) => a - b) as [number, number] });
+    }
+
+    // try all pairs of wings
+    for (const [i, j] of choosePairs(bivals.length)) {
+      const A = bivals[i], B = bivals[j];
+      if (A.pair[0] !== B.pair[0] || A.pair[1] !== B.pair[1]) continue; // same pair
+      // not peers (classical W-Wing)
+      if (A.r === B.r || A.c === B.c || inBox(A.r, A.c) === inBox(B.r, B.c)) continue;
+
+      const [X, Y] = A.pair;
+
+      // check a row strong link on X spanning columns of A and B
+      let linkRow: number | null = null;
+      for (let r = 0; r < 9 && linkRow === null; r++) {
+        const cols = colsWithDigit(board, r, X);
+        if (cols.length === 2 && cols.includes(A.c) && cols.includes(B.c)) linkRow = r;
+      }
+
+      // check a column strong link on X spanning rows of A and B
+      let linkCol: number | null = null;
+      for (let c = 0; c < 9 && linkCol === null; c++) {
+        const rows = rowsWithDigit(board, c, X);
+        if (rows.length === 2 && rows.includes(A.r) && rows.includes(B.r)) linkCol = c;
+      }
+
+      if (linkRow === null && linkCol === null) continue; // no conjugate link found
+
+      // eliminations = Y in intersection of peers of A and B
+      const meet = intersectKeys(peersOf(A.r, A.c), peersOf(B.r, B.c));
+      meet.delete(`${A.r},${A.c}`); meet.delete(`${B.r},${B.c}`);
+      const eliminations: Array<{ r: number; c: number; d: number }> = [];
+      for (const key of meet) {
+        const [er, ec] = key.split(',').map(Number);
+        const cell = board[er][ec];
+        if (!cell.value && cell.candidates.has(Y)) eliminations.push({ r: er, c: ec, d: Y });
+      }
+      if (!eliminations.length) continue;
+
+      // explain the link succinctly
+      const linkText = linkRow !== null
+        ? `row ${ROW_LETTERS[linkRow]} (only in columns ${A.c + 1} & ${B.c + 1})`
+        : `column ${(linkCol! + 1)} (only in rows ${ROW_LETTERS[A.r]} & ${ROW_LETTERS[B.r]})`;
+
+      const steps: HintStep[] = [
+        {
+          title: `W-Wing on {${X}, ${Y}}`,
+          message: `Wings at ${coord(A.r, A.c)} and ${coord(B.r, B.c)} share the pair {${X}, ${Y}}.`,
+          highlight: { cells: [{ r: A.r, c: A.c }, { r: B.r, c: B.c }], candTargets: [{ r: A.r, c: A.c, d: X }, { r: A.r, c: A.c, d: Y }, { r: B.r, c: B.c, d: X }, { r: B.r, c: B.c, d: Y }] }
+        },
+        {
+          title: `Strong link on ${X}`,
+          message: `${X} forms a conjugate pair in ${linkText}.`,
+          highlight: {
+            rows: linkRow !== null ? [linkRow] : [],
+            cols: linkCol !== null ? [linkCol!] : [],
+            candTargets: linkRow !== null
+              ? [{ r: linkRow, c: A.c, d: X }, { r: linkRow, c: B.c, d: X }]
+              : [{ r: A.r, c: linkCol!, d: X }, { r: B.r, c: linkCol!, d: X }]
+          }
+        },
+        {
+          title: `Eliminate ${Y}`,
+          message: `Any cell that sees both wings cannot be ${Y}. Remove from: ${uniq(eliminations.map(e => coord(e.r, e.c))).join(', ')}.`,
+          highlight: { candTargets: eliminations }
+        }
+      ];
+
+      return { kind: 'W-Wing', digit: Y, target: { r: A.r, c: A.c }, steps, apply: (b) => removeCandidates(b, eliminations) };
+    }
+
+    return null;
+  }
+
+  // ---------- NEW: XYZ-Wing ----------
+  /**
+   * Pivot P with {X,Y,Z}; pincers A with {X,Z} and B with {Y,Z}, both see P.
+   * Then any cell that sees P, A, and B cannot be Z.
+   */
+  private xyzWing(board: Board): HintResult | null {
+    // peers helper
+    const peersCache = new Map<string, Set<string>>();
+    const peersOf = (r: number, c: number): Set<string> => {
+      const k = `${r},${c}`; if (peersCache.has(k)) return peersCache.get(k)!;
+      const s = new Set<string>();
+      for (let i = 0; i < 9; i++) { if (i !== c) s.add(`${r},${i}`); if (i !== r) s.add(`${i},${c}`); }
+      const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) { if (rr === r && cc === c) continue; s.add(`${rr},${cc}`); }
+      peersCache.set(k, s); return s;
+    };
+
+    // tri-value pivots
+    const pivots: Array<{ r: number; c: number; tri: number[] }> = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = board[r][c];
+      if (cell.value) continue;
+      const cand = Array.from(cell.candidates);
+      if (cand.length === 3) pivots.push({ r, c, tri: cand.sort((a, b) => a - b) });
+    }
+
+    for (const P of pivots) {
+      const [X, Y, Z] = P.tri;
+      const pPeers = peersOf(P.r, P.c);
+
+      const axz: Array<{ r: number; c: number }> = [];
+      const byz: Array<{ r: number; c: number }> = [];
+
+      for (const key of pPeers) {
+        const [pr, pc] = key.split(',').map(Number);
+        const cell = board[pr][pc];
+        if (cell.value) continue;
+        const cand = Array.from(cell.candidates);
+        if (cand.length !== 2) continue;
+        const s = new Set(cand);
+        if (s.has(X) && s.has(Z) && !s.has(Y)) axz.push({ r: pr, c: pc });
+        if (s.has(Y) && s.has(Z) && !s.has(X)) byz.push({ r: pr, c: pc });
+      }
+
+      for (const A of axz) for (const B of byz) {
+        const common = intersectKeys(intersectKeys(peersOf(P.r, P.c), peersOf(A.r, A.c)), peersOf(B.r, B.c));
+        common.delete(`${P.r},${P.c}`); common.delete(`${A.r},${A.c}`); common.delete(`${B.r},${B.c}`);
+
+        const elim: Array<{ r: number; c: number; d: number }> = [];
+        for (const key of common) {
+          const [er, ec] = key.split(',').map(Number);
+          const cell = board[er][ec];
+          if (!cell.value && cell.candidates.has(Z)) elim.push({ r: er, c: ec, d: Z });
+        }
+        if (!elim.length) continue;
+
+        const steps: HintStep[] = [
+          {
+            title: `XYZ-Wing pivot at ${coord(P.r, P.c)}`,
+            message: `Pivot has {${X}, ${Y}, ${Z}}.`,
+            highlight: { cells: [{ r: P.r, c: P.c }], candTargets: [{ r: P.r, c: P.c, d: X }, { r: P.r, c: P.c, d: Y }, { r: P.r, c: P.c, d: Z }] }
+          },
+          {
+            title: `Pincers`,
+            message: `${coord(A.r, A.c)} has {${X}, ${Z}}; ${coord(B.r, B.c)} has {${Y}, ${Z}}. Both see the pivot.`,
+            highlight: { cells: [A, B], candTargets: [{ r: A.r, c: A.c, d: X }, { r: A.r, c: A.c, d: Z }, { r: B.r, c: B.c, d: Y }, { r: B.r, c: B.c, d: Z }] }
+          },
+          {
+            title: `Eliminate ${Z}`,
+            message: `Any cell that sees all three cannot be ${Z}: ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+            highlight: { candTargets: elim }
+          }
+        ];
+
+        return { kind: 'XYZ-Wing', digit: Z, target: { r: P.r, c: P.c }, steps, apply: (b) => removeCandidates(b, elim) };
       }
     }
 
@@ -848,13 +894,9 @@ function unitHighlight(kind: UnitKind, idx: number) {
   return kind === 'row' ? { rows: [idx] } : kind === 'col' ? { cols: [idx] } : { boxes: [idx] };
 }
 
-function uniq<T>(arr: T[]) {
-  return Array.from(new Set(arr));
-}
+function uniq<T>(arr: T[]) { return Array.from(new Set(arr)); }
 
-function inBox(r: number, c: number) {
-  return Math.floor(r / 3) * 3 + Math.floor(c / 3);
-}
+function inBox(r: number, c: number) { return Math.floor(r / 3) * 3 + Math.floor(c / 3); }
 
 function boxCells(box: number) {
   const br = Math.floor(box / 3) * 3, bc = (box % 3) * 3;
@@ -883,7 +925,6 @@ function setValueKeepCands(board: Board, r: number, c: number, d: number): Board
     candidates: new Set(cell.candidates),
     suppressed: new Set(cell.suppressed)
   })));
-  // place value and clear suppressed for that cell
   next[r][c].value = d as any;
   next[r][c].suppressed.clear();
   return computeCandidates(next);
@@ -910,11 +951,7 @@ function chooseCombos(items: number[], k: number): number[][] {
   const n = items.length;
   const dfs = (start: number, path: number[]) => {
     if (path.length === k) { res.push([...path]); return; }
-    for (let i = start; i < n; i++) {
-      path.push(items[i]);
-      dfs(i + 1, path);
-      path.pop();
-    }
+    for (let i = start; i < n; i++) { path.push(items[i]); dfs(i + 1, path); path.pop(); }
   };
   dfs(0, []);
   return res;
