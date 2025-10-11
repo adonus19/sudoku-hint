@@ -432,8 +432,11 @@ export class SudokuStore {
 
   // NEW: full puzzle ripple
   private triggerWinRipple(r: number, c: number) {
-    this._flashes?.set?.([]);            // ensure no competing overlays
-    this._win.set({ r, c });
-    setTimeout(() => this._win.set(null), 900);
+    this._flashes.set([]); // ensure no competing overlays
+    // Defer one frame so Angular paints flash-clear before win starts
+    requestAnimationFrame(() => {
+      this._win.set({ r, c });
+      setTimeout(() => this._win.set(null), 1200);
+    });
   }
 }

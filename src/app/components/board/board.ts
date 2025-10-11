@@ -18,6 +18,7 @@ export class Board {
   rows = Array.from({ length: 9 }, (_, i) => i);
   cols = Array.from({ length: 9 }, (_, i) => i);
   digits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  confetti = Array.from({ length: 18 }, (_, i) => i);
 
   private hasFocus = signal<boolean>(false);
   private hovered = signal<Coord | null>(null);

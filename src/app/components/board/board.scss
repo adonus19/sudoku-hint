@@ -77,6 +77,10 @@
    outline: none;
    border: 2px solid rgba(0, 0, 0, .6);
    width: calc(9 * var(--cell));
+   position: relative;
+   /* NEW: required for ::before positioning */
+   overflow: hidden;
+   /* NEW: keep ripple/confetti inside */
  }
 
  /* Cells/pencils (unchanged below) */
@@ -141,17 +145,17 @@
 
  .board .row .cell:nth-child(3n+1) {
    border-left-width: 2px;
-  border-left-color: rgba(0, 0, 0, .5);
+   border-left-color: rgba(0, 0, 0, .5);
  }
 
  .board .row:nth-child(9) .cell {
    border-bottom-width: 2px;
-  border-bottom-color: rgba(0, 0, 0, .5);
+   border-bottom-color: rgba(0, 0, 0, .5);
  }
 
  .board .row .cell:nth-child(9) {
    border-right-width: 2px;
-  border-right-color: rgba(0, 0, 0, .5);
+   border-right-color: rgba(0, 0, 0, .5);
  }
 
  .cell.given .val {
@@ -261,28 +265,66 @@
    content: '';
    position: absolute;
    inset: 0;
-   background: rgba(76, 175, 80, 0.45);
-   /* brighter green */
+   background: rgba(76, 175, 80, 0.48);
    opacity: 0;
    transform: scale(.92);
-   animation: unitFlash .6s ease-out forwards;
+   animation: unitFlash 2.6s ease-out forwards;
    animation-delay: var(--delay, 0ms);
  }
 
- @keyframes unitFlash {
-   10% {
-     opacity: .95;
-   }
+ .win-badge {
+   position: absolute;
+   top: 8px;
+   right: 8px;
+   z-index: 10000;
+   background: rgba(76, 175, 80, 0.95);
+   color: #fff;
+   font-weight: 700;
+   border-radius: 999px;
+   padding: 6px 10px;
+   font-size: 12px;
+   letter-spacing: .3px;
+   box-shadow: 0 4px 12px rgba(76, 175, 80, .35);
+   opacity: 0;
+   transform: translateY(-6px) scale(.98);
+   animation: badgePop .6s ease-out forwards .08s, badgeFade 7.2s ease-in forwards .9s;
+ }
 
-   50% {
-     opacity: .6;
-     transform: scale(1.00);
-   }
+ .confetti {
+   position: absolute;
+   inset: 0;
+   pointer-events: none;
+   z-index: 10000;
+ }
 
-   100% {
-     opacity: 0;
-     transform: scale(1.00);
-   }
+ .confetti i {
+   --count: 18;
+   --h: calc(var(--oy, 50%));
+   /* uses the same origin vars as ripple */
+   --w: calc(var(--ox, 50%));
+   position: absolute;
+   top: var(--h);
+   left: var(--w);
+   width: 6px;
+   height: 10px;
+   border-radius: 1px;
+   opacity: 0;
+   animation: confettiPop 900ms ease-out forwards;
+   /* disperse by index */
+   transform: translate(-50%, -50%) rotate(calc(var(--i) * 20deg));
+ }
+
+ /* simple color cycle via nth-child */
+ .confetti i:nth-child(3n+1) {
+   background: #66bb6a;
+ }
+
+ .confetti i:nth-child(3n+2) {
+   background: #81c784;
+ }
+
+ .confetti i:nth-child(3n+3) {
+   background: #a5d6a7;
  }
 
  /* Optional: while any flash is active, slightly dim the base hl to avoid clash */
@@ -305,13 +347,42 @@
        rgba(76, 175, 80, 0.00) 60%);
    opacity: 0;
    animation: winRipple 900ms ease-out forwards;
-   z-index: 999;
+   z-index: 9999;
  }
 
  /* while the win ripple runs, suppress unit flashes completely */
  .board.win .cell.unit-flash::after {
    animation: none !important;
    opacity: 0 !important;
+ }
+
+ @keyframes unitFlash {
+   10% {
+     opacity: .95;
+   }
+
+   50% {
+     opacity: .6;
+     transform: scale(1.00);
+   }
+
+   100% {
+     opacity: 0;
+     transform: scale(1.00);
+   }
+ }
+
+ @keyframes badgePop {
+   to {
+     opacity: 1;
+     transform: none;
+   }
+ }
+
+ @keyframes badgeFade {
+   to {
+     opacity: 0;
+   }
  }
 
  @keyframes winRipple {
@@ -332,5 +403,28 @@
    100% {
      opacity: 0;
      transform: scale(1.08);
+   }
+ }
+
+ /* radial throw with slight randomness using the index */
+ @keyframes confettiPop {
+   0% {
+     opacity: 0;
+     transform: translate(-50%, -50%) scale(.6) rotate(0deg);
+   }
+
+   10% {
+     opacity: 1;
+   }
+
+   60% {
+     opacity: .85;
+   }
+
+   100% {
+     opacity: 0;
+     transform:
+       translate(calc(-50% + (cos(var(--i)*20deg) * 160px)),
+         calc(-50% + (sin(var(--i)*20deg) * 160px))) rotate(360deg) scale(1);
    }
  }

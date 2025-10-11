@@ -53,6 +53,12 @@
       [style.--ox]="store.win() ? ( (store.win()!.c + 0.5) / 9 * 100 ) + '%' : null"
       [style.--oy]="store.win() ? ( (store.win()!.r + 0.5) / 9 * 100 ) + '%' : null"
     >
+      @if (store.win()) {
+      <div class="win-badge">Solved!</div>
+      <div class="confetti">
+        @for (i of confetti; track $index) { <i [style.--i]="$index"></i> }
+      </div>
+      }
       @for (r of rows; track $index) {
       <div
         class="row"
