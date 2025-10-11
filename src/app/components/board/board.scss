@@ -18,6 +18,29 @@
    display: inline-block;
    max-width: 100%;
    margin: 0 auto;
+   position: relative;
+ }
+
+ .loading-overlay {
+   position: absolute;
+   inset: 0;
+   display: grid;
+   place-items: center;
+   gap: 8px;
+   background: rgba(255, 255, 255, 0.75);
+   z-index: 2;
+   text-align: center;
+   pointer-events: all;
+   /* consume clicks while busy */
+ }
+
+ .loading-overlay .txt {
+   font-size: 14px;
+   color: rgba(0, 0, 0, .7);
+ }
+
+ .board-outer:has(.loading-overlay) .board {
+   filter: grayscale(0.2) opacity(0.7);
  }
 
  .col-labels {
@@ -202,4 +225,60 @@
  /* Optional: reduce left gutter when labels hidden (keeps grid centered) */
  .labels-off .row {
    margin-left: 0;
+ }
+
+ .difficulty-label {
+   margin: 6px 0 8px;
+   font-weight: 600;
+   color: rgba(0, 0, 0, .72);
+ }
+
+ /* Initial top→bottom reveal for numbers */
+ .board.reveal .val {
+   opacity: 0;
+   transform: translateY(-6px);
+   animation: valReveal .42s ease-out forwards;
+   animation-delay: calc(var(--r) * 80ms);
+   /* top→bottom */
+ }
+
+ @keyframes valReveal {
+   to {
+     opacity: 1;
+     transform: none;
+   }
+ }
+
+ /* Unit completion flash: wave from the last entered cell */
+ .cell.unit-flash {
+   position: relative;
+   overflow: hidden;
+ }
+
+ .cell.unit-flash::after {
+   content: '';
+   position: absolute;
+   inset: 0;
+  background: rgba(76, 175, 80, 0.30);
+    /* #4CAF50 @ 30% */
+   opacity: 0;
+   transform: scale(.92);
+   animation: unitFlash .55s ease-out forwards;
+   animation-delay: var(--delay, 0ms);
+ }
+
+ @keyframes unitFlash {
+   10% {
+     opacity: .9;
+   }
+
+   50% {
+     opacity: .6;
+     transform: scale(1.00);
+   }
+
+   100% {
+     opacity: 0;
+     transform: scale(1.00);
+   }
  }

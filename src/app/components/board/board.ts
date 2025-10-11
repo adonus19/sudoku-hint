@@ -1,5 +1,6 @@
-import { Component, effect, HostListener, inject, signal, computed } from '@angular/core';
+import { Component, effect, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SudokuStore } from '../../data/sudoku.store';
 
 type Coord = { r: number; c: number };
@@ -7,7 +8,7 @@ const ROW_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
 @Component({
   selector: 'app-board',
-  imports: [CommonModule],
+  imports: [CommonModule, MatProgressSpinnerModule],
   templateUrl: './board.html',
   styleUrl: './board.scss'
 })
@@ -178,6 +179,29 @@ export class Board {
       if (!this.isGiven(r, c) || this.store.editingGivenMode()) this.store.clearCell(r, c);
       return;
     }
+  }
+
+  hasFlashAt(r: number, c: number): boolean {
+    const f = this.store.flash();
+    if (!f) return false;
+    if (f.kind === 'row') return f.index === r;
+    if (f.kind === 'col') return f.index === c;
+    // box
+    const b = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+    return f.index === b;
+  }
+
+  flashDelay(r: number, c: number): string | null {
+    const f = this.store.flash(); if (!f) return null;
+    const o = f.origin;
+    let steps = 0;
+    if (f.kind === 'row') steps = Math.abs(c - o.c);
+    else if (f.kind === 'col') steps = Math.abs(r - o.r);
+    else {
+      // box: manhattan distance within the 3x3
+      steps = Math.abs(r - o.r) + Math.abs(c - o.c);
+    }
+    return `${steps * 60}ms`;
   }
 
   private moveSelection(r: number, c: number, key: string, shiftTab: boolean) {

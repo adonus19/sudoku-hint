@@ -5,6 +5,7 @@ import { HintHighlight, HintResult } from '../hint/hint.types';
 import { solveSudoku } from './sudoku.solver';
 import { generatePuzzle } from './sudoku.generator';
 import type { Difficulty } from '../components/new-puzzle-dialog/new-puzzle-dialog';
+import { DifficultyRating, ratePuzzle } from './sudoku.rater';
 
 @Injectable({
   providedIn: 'root'
@@ -18,6 +19,10 @@ export class SudokuStore {
   private _hl = signal<HintHighlight | null>(null);
   private _fullScreenBoard = signal<boolean>(false);
   private _solution = signal<number[][] | null>(null);
+  private _busy = signal<boolean>(false);
+  private _rating = signal<DifficultyRating | null>(null);
+  private _reveal = signal<boolean>(false);
+  private _flash = signal<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord } | null>(null);
 
   private _pool = new Map<Difficulty, Board[]>(); // small pregen cache
   private _recentHashes = signal<Record<Difficulty, string[]>>(
@@ -36,6 +41,10 @@ export class SudokuStore {
 
   conflicts = computed(() => detectConflicts(this._board()));
   solution = this._solution.asReadonly();
+  busy = this._busy.asReadonly();
+  rating = this._rating.asReadonly();
+  reveal = this._reveal.asReadonly();
+  flash = this._flash.asReadonly();
 
   resetBoard() {
     this._board.set(createEmptyBoard());
@@ -53,12 +62,15 @@ export class SudokuStore {
   toggleEditingGivenMode() {
     this._editingGivenMode.update(v => !v);
     if (!this._editingGivenMode()) {
-      this.computeSolutionFromGivens();
+      this.computeSolutionFromGivens?.();   // if you added solution earlier
+      this._rating.set(null);
+      this.rateCurrentBoard();              // <-- rate user puzzle
     } else {
-      this._solution.set(null);
+      this._solution?.set(null);
+      this._rating.set(null);
     }
-
   }
+
   togglePencilMode() {
     this._pencilMode.update(v => !v);
   }
@@ -70,9 +82,13 @@ export class SudokuStore {
   setCellValue(r: number, c: number, value: Digit, opts?: { asGiven?: boolean }) {
     const asGiven = opts?.asGiven ?? this._editingGivenMode();
     const current = this._board()[r][c];
+    const wasEmpty = current.value === 0; // <-- add
     if (current.given && !asGiven) return;
     this._board.update(b => setValue(b, r, c, value, asGiven));
     this.recomputeCandidates();
+
+    // flash only for user play (not in given mode) and when filling an empty cell
+    if (!this._editingGivenMode() && wasEmpty) this.triggerUnitFlash(r, c); // <-- add
   }
 
   clearCell(r: number, c: number) {
@@ -210,21 +226,64 @@ export class SudokuStore {
     return cell.value !== sol[r][c];
   }
 
-  newPuzzle(difficulty: Difficulty = 'medium', symmetry: 'central' | 'diagonal' | 'none' = 'central') {
-    // try pool first
-    const board = this.getFromPoolOrGenerate(difficulty, symmetry);
+  async newPuzzle(
+    difficulty: 'easy' | 'medium' | 'hard' | 'expert' = 'medium',
+    symmetry: 'central' | 'diagonal' | 'none' = 'central'
+  ) {
+    // avoid re-entry
+    if (this._busy()) return;
+    this._busy.set(true);
+    try {
+      // get or generate (your existing logic)
+      const board = this.getFromPoolOrGenerate(difficulty, symmetry); // or your existing implementation
+      this._board.set(board);
+      this._selected.set({ r: 0, c: 0 });
+      this._editingGivenMode.set(false);
+      this._hl.set(null);
+      this._solution.set(null);
+      this.recomputeCandidates();
+      this.computeSolutionFromGivens?.();
+      // prewarm (non-blocking)
+      setTimeout(() => this.prewarmCache?.(difficulty, symmetry), 0);
+    } finally {
+      this._busy.set(false);
+    }
 
-    // load board into store
-    this._board.set(board);
-    this._selected.set({ r: 0, c: 0 });
-    this._editingGivenMode.set(false);
-    this._hl.set(null);
-    this._solution.set(null); // will be computed when leaving given mode (if you adopted solution feature)
-    this.recomputeCandidates();
-    this.computeSolutionFromGivens();
+    this._rating.set(null);
+    this.rateCurrentBoard();
 
-    // prewarm for next time (non-blocking)
-    setTimeout(() => this.prewarmCache(difficulty, symmetry), 0);
+    this.triggerReveal(); // <-- animate initial numbers
+  }
+
+  /** Pre-generate a few puzzles per difficulty to make "New" feel instant */
+  prewarmCache(difficulty: Difficulty, symmetry: 'central' | 'diagonal' | 'none') {
+    const targetSize = 3; // small to avoid perf hit
+    const list = this._pool.get(difficulty) ?? [];
+    if (list.length >= targetSize) return;
+
+    // generate 1–2 more asynchronously
+    const need = targetSize - list.length;
+    let produced = 0;
+
+    const tick = () => {
+      if (produced >= need) {
+        this._pool.set(difficulty, list);
+        return;
+      }
+      const { board } = generatePuzzle({ difficulty, symmetry });
+      const h = this.puzzleHash(board);
+      if (!this.isRecent(difficulty, h) && !list.some(b => this.puzzleHash(b) === h)) {
+        list.push(board);
+        produced++;
+      }
+      setTimeout(tick, 0);
+    };
+    setTimeout(tick, 0);
+  }
+
+  rateCurrentBoard() {
+    // rating is synchronous; offload a tick to keep UI snappy
+    setTimeout(() => this._rating.set(ratePuzzle(this._board())), 0);
   }
 
   private puzzleHash(b: Board): string {
@@ -277,32 +336,6 @@ export class SudokuStore {
     return board;
   }
 
-  /** Pre-generate a few puzzles per difficulty to make "New" feel instant */
-  prewarmCache(difficulty: Difficulty, symmetry: 'central' | 'diagonal' | 'none') {
-    const targetSize = 3; // small to avoid perf hit
-    const list = this._pool.get(difficulty) ?? [];
-    if (list.length >= targetSize) return;
-
-    // generate 1–2 more asynchronously
-    const need = targetSize - list.length;
-    let produced = 0;
-
-    const tick = () => {
-      if (produced >= need) {
-        this._pool.set(difficulty, list);
-        return;
-      }
-      const { board } = generatePuzzle({ difficulty, symmetry });
-      const h = this.puzzleHash(board);
-      if (!this.isRecent(difficulty, h) && !list.some(b => this.puzzleHash(b) === h)) {
-        list.push(board);
-        produced++;
-      }
-      setTimeout(tick, 0);
-    };
-    setTimeout(tick, 0);
-  }
-
   private computeSolutionFromGivens() {
     const givensOnly = this._board().map(row => row.map(cell => ({
       ...cell,
@@ -314,5 +347,41 @@ export class SudokuStore {
 
     const solved = solveSudoku(givensOnly);
     this._solution.set(solved);
+  }
+
+  private triggerReveal(ms = 900) {
+    this._reveal.set(true);
+    setTimeout(() => this._reveal.set(false), ms);
+  }
+
+  private isRowComplete(r: number) {
+    return this._board()[r].every(c => !!c.value);
+  }
+
+  private isColComplete(c: number) {
+    return this._board().every(row => !!row[c].value);
+  }
+
+  private isBoxComplete(b: number) {
+    const br = Math.floor(b / 3) * 3, bc = (b % 3) * 3;
+    for (let r = br; r < br + 3; r++) for (let c = bc; c < bc + 3; c++) if (!this._board()[r][c].value) return false;
+    return true;
+  }
+
+  private boxIndex(r: number, c: number) {
+    return Math.floor(r / 3) * 3 + Math.floor(c / 3);
+  }
+
+  private triggerUnitFlash(r: number, c: number) {
+    const box = this.boxIndex(r, c);
+    const flashes: Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }> = [];
+    if (this.isRowComplete(r)) flashes.push({ kind: 'row', index: r, origin: { r, c } });
+    if (this.isColComplete(c)) flashes.push({ kind: 'col', index: c, origin: { r, c } });
+    if (this.isBoxComplete(box)) flashes.push({ kind: 'box', index: box, origin: { r, c } });
+
+    if (!flashes.length) return;
+    // show first; (optional) schedule others if >1
+    this._flash.set(flashes[0]);
+    setTimeout(() => this._flash.set(null), 650);
   }
 }

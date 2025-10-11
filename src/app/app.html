@@ -43,6 +43,7 @@
     <button
       mat-button
       (click)="openNewPuzzle()"
+      [disabled]="store.busy()"
     ><mat-icon>auto_awesome</mat-icon> New puzzle…</button>
   </div>
 
@@ -96,6 +97,7 @@
       <button
         mat-menu-item
         (click)="openNewPuzzle()"
+        [disabled]="store.busy()"
       >
         <mat-icon>auto_awesome</mat-icon><span>New puzzle…</span>
       </button>

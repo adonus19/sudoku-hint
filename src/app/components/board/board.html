@@ -3,6 +3,26 @@
   [class.labels-off]="store.fullScreenBoard()"
 >
 
+  <!-- overlay while generating -->
+  @if (store.busy()) {
+  <div
+    class="loading-overlay"
+    aria-live="polite"
+  >
+    <mat-progress-spinner
+      mode="indeterminate"
+      diameter="48"
+    ></mat-progress-spinner>
+    <div class="txt">Building puzzle…</div>
+  </div>
+  }
+
+  @if (store.rating()) {
+  <div class="difficulty-label">
+    Difficulty: {{ store.rating()!.bucket }}
+  </div>
+  }
+
   @if (!store.fullScreenBoard()) {
   <div class="col-labels">
     <div class="corner"></div>
@@ -11,6 +31,7 @@
     }
   </div>
   }
+
 
   <div class="row">
     @if (!store.fullScreenBoard()) {
@@ -26,6 +47,7 @@
       role="grid"
       tabindex="0"
       (click)="focusBoard()"
+      [class.reveal]="store.reveal()"
     >
       @for (r of rows; track $index) {
       <div
@@ -44,6 +66,10 @@
           [attr.aria-selected]="isSelected(r,c)"
           [attr.aria-label]="ariaLabel(r,c)"
           [attr.aria-disabled]="isGiven(r,c) && !store.editingGivenMode() ? 'true' : null"
+          [style.--r]="r"
+          [style.--c]="c"
+          [class.unit-flash]="hasFlashAt(r,c)"
+          [style.--delay]="flashDelay(r,c)"
         >
 
           @if (hasValue(r,c)) {

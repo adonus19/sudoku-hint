@@ -51,6 +51,10 @@ export class HintService {
     const bug = this.bug(b);
     if (bug) return bug;
 
+    // 6.5) Cross-Hatching (for puzzle generation assistance)
+    const chc = this.crossHatchingColumn(b);
+    if (chc) return chc;
+
     // 7) Swordfish (rows, then cols)
     const sfRow = this.swordfish(b, 'row');
     if (sfRow) return sfRow;
@@ -382,6 +386,126 @@ export class HintService {
       steps,
       apply: (b) => setValueKeepCands(b, tri!.r, tri!.c, dMust)
     };
+  }
+
+  /**
+ * Cross Hatching (Column):
+ * In a stack (3 vertically aligned boxes), if the other two boxes place digit d
+ * in two different relative columns, then in the remaining box, d must be in
+ * the third column. This yields either a placement (1 cell) or pointing elim.
+ */
+  private crossHatchingColumn(board: Board): HintResult | null {
+    // helper: get all placed cells for digit d in a box
+    const placedInBox = (box: number, d: number): Array<{ r: number; c: number }> => {
+      const cells: Array<{ r: number; c: number }> = [];
+      for (const { r, c } of boxCells(box)) if (board[r][c].value === d) cells.push({ r, c });
+      return cells;
+    };
+
+    // iterate stacks (columns grouped by 3): s = 0 (cols 0..2), 1 (3..5), 2 (6..8)
+    for (let s = 0; s < 3; s++) {
+      const stackBoxes = [s, s + 3, s + 6]; // top→bottom boxes in this stack
+      const baseCol = s * 3;
+
+      for (const B of stackBoxes) {
+        const others = stackBoxes.filter(x => x !== B);
+        const br = Math.floor(B / 3) * 3;
+        const bc = (B % 3) * 3;
+
+        for (let d = 1; d <= 9; d++) {
+          // look for *placed* d in the two other boxes
+          const p1 = placedInBox(others[0], d);
+          const p2 = placedInBox(others[1], d);
+          if (p1.length !== 1 || p2.length !== 1) continue; // need a single fixed d in each
+          const relC1 = p1[0].c % 3;
+          const relC2 = p2[0].c % 3;
+          if (relC1 === relC2) continue; // they must block two *different* relative columns
+
+          // infer remaining relative column in target box B
+          const blocked = new Set([relC1, relC2]);
+          const relCandidates = [0, 1, 2].filter(rc => !blocked.has(rc));
+          if (relCandidates.length !== 1) continue;
+          const rc = relCandidates[0];
+          const globalCol = baseCol + rc;
+
+          // candidate cells in target box B on that column
+          const spots: Array<{ r: number; c: number }> = [];
+          for (let r = br; r < br + 3; r++) {
+            const c = globalCol;
+            const cell = board[r][c];
+            if (!cell.value && cell.candidates.has(d)) spots.push({ r, c });
+          }
+          if (spots.length === 0) continue;
+
+          // Case A: single spot → placement
+          if (spots.length === 1) {
+            const { r, c } = spots[0];
+            const steps: HintStep[] = [
+              {
+                title: `Cross Hatching (Column) on ${d}`,
+                message: `In stack columns ${baseCol + 1}–${baseCol + 3}, the other two boxes already place ${d} in columns ${(baseCol + relC1 + 1)} and ${(baseCol + relC2 + 1)}. So in box ${B + 1}, ${d} must be in column ${globalCol + 1}.`,
+                highlight: {
+                  boxes: [others[0], others[1], B],
+                  cols: [globalCol],
+                  cells: [p1[0], p2[0]],
+                  candTargets: [{ r, c, d }]
+                }
+              },
+              {
+                title: `Only one cell in box ${B + 1}`,
+                message: `${d} fits only at ${ROW_LETTERS[r]}${c + 1}.`,
+                highlight: { boxes: [B], cols: [globalCol], cells: [{ r, c }], candTargets: [{ r, c, d }] }
+              }
+            ];
+            return {
+              kind: 'Cross Hatching (Column)',
+              digit: d,
+              target: { r, c },
+              steps,
+              apply: (b) => setValueKeepCands(b, r, c, d)
+            };
+          }
+
+          // Case B: multiple spots → pointing elim in the column outside the box
+          const eliminations: Array<{ r: number; c: number; d: number }> = [];
+          for (let r = 0; r < 9; r++) {
+            // outside the target box rows (i.e., not r ∈ [br..br+2])
+            if (r >= br && r < br + 3) continue;
+            const c = globalCol;
+            const cell = board[r][c];
+            if (!cell.value && cell.candidates.has(d)) eliminations.push({ r, c, d });
+          }
+          if (!eliminations.length) continue;
+
+          const steps: HintStep[] = [
+            {
+              title: `Cross Hatching (Column) on ${d}`,
+              message: `In stack columns ${baseCol + 1}–${baseCol + 3}, ${d} is fixed in columns ${(baseCol + relC1 + 1)} and ${(baseCol + relC2 + 1)} of the other two boxes, so in box ${B + 1} ${d} must be in column ${globalCol + 1}.`,
+              highlight: {
+                boxes: [others[0], others[1], B],
+                cols: [globalCol],
+                cells: [p1[0], p2[0]],
+                candTargets: spots.map(s => ({ r: s.r, c: s.c, d }))
+              }
+            },
+            {
+              title: `Eliminate ${d} from column ${globalCol + 1} outside box ${B + 1}`,
+              message: `Remove ${d} from: ${eliminations.map(e => `${ROW_LETTERS[e.r]}${e.c + 1}`).join(', ')}.`,
+              highlight: { cols: [globalCol], boxes: [B], candTargets: eliminations }
+            }
+          ];
+          return {
+            kind: 'Cross Hatching (Column)',
+            digit: d,
+            target: spots[0],
+            steps,
+            apply: (b) => removeCandidates(b, eliminations)
+          };
+        }
+      }
+    }
+
+    return null;
   }
 
   // ---------- Fish ----------
