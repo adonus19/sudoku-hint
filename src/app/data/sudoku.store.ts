@@ -22,15 +22,18 @@ export class SudokuStore {
   private _busy = signal<boolean>(false);
   private _rating = signal<DifficultyRating | null>(null);
   private _reveal = signal<boolean>(false);
-  private _flash = signal<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord } | null>(null);
+  private _flashes = signal<Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }>>([]);
+  private _win = signal<Coord | null>(null);
 
-  private _pool = new Map<Difficulty, Board[]>(); // small pregen cache
+  private _pool = new Map<Difficulty, Array<{ board: Board; rating: DifficultyRating }>>(); // small pregen cache
   private _recentHashes = signal<Record<Difficulty, string[]>>(
     (() => {
       try { return JSON.parse(localStorage.getItem('sdk_recent_hashes') || '{}'); }
       catch { return {}; }
     })() as any
   );
+
+  private _worker: Worker | null = null;
 
   board = this._board.asReadonly();
   selected = this._selected.asReadonly();
@@ -44,7 +47,8 @@ export class SudokuStore {
   busy = this._busy.asReadonly();
   rating = this._rating.asReadonly();
   reveal = this._reveal.asReadonly();
-  flash = this._flash.asReadonly();
+  flashes = this._flashes.asReadonly();
+  win = this._win.asReadonly();
 
   resetBoard() {
     this._board.set(createEmptyBoard());
@@ -62,9 +66,9 @@ export class SudokuStore {
   toggleEditingGivenMode() {
     this._editingGivenMode.update(v => !v);
     if (!this._editingGivenMode()) {
-      this.computeSolutionFromGivens?.();   // if you added solution earlier
+      this.computeSolutionFromGivens?.();
       this._rating.set(null);
-      this.rateCurrentBoard();              // <-- rate user puzzle
+      this.rateCurrentBoard(); // stays on main thread for user boards
     } else {
       this._solution?.set(null);
       this._rating.set(null);
@@ -87,8 +91,15 @@ export class SudokuStore {
     this._board.update(b => setValue(b, r, c, value, asGiven));
     this.recomputeCandidates();
 
-    // flash only for user play (not in given mode) and when filling an empty cell
-    if (!this._editingGivenMode() && wasEmpty) this.triggerUnitFlash(r, c); // <-- add
+    if (!this._editingGivenMode() && wasEmpty) {
+      if (this.isSolvedBoard()) {
+        // NEW: ensure win ripple takes precedence
+        this._flashes?.set?.([]);          // clear any running row/col/box flashes
+        this.triggerWinRipple(r, c);       // fire win ripple (no unit flash)
+      } else {
+        this.triggerUnitFlash(r, c);       // normal unit flash
+      }
+    }
   }
 
   clearCell(r: number, c: number) {
@@ -105,6 +116,8 @@ export class SudokuStore {
     this._editingGivenMode.set(false);
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
+    this._rating.set(null);
+    this.rateCurrentBoard();
   }
 
   recomputeCandidates() {
@@ -226,16 +239,15 @@ export class SudokuStore {
     return cell.value !== sol[r][c];
   }
 
-  async newPuzzle(
-    difficulty: 'easy' | 'medium' | 'hard' | 'expert' = 'medium',
-    symmetry: 'central' | 'diagonal' | 'none' = 'central'
-  ) {
-    // avoid re-entry
+  async newPuzzle(difficulty: 'easy' | 'medium' | 'hard' | 'expert' = 'medium', symmetry: 'central' | 'diagonal' | 'none' = 'central') {
     if (this._busy()) return;
     this._busy.set(true);
     try {
-      // get or generate (your existing logic)
-      const board = this.getFromPoolOrGenerate(difficulty, symmetry); // or your existing implementation
+      await this.nextFrame();
+
+      // was: const board = await this.getFromPoolOrGenerateAsync(...)
+      const { board, rating } = await this.getFromPoolOrGenerateAsync(difficulty, symmetry);
+
       this._board.set(board);
       this._selected.set({ r: 0, c: 0 });
       this._editingGivenMode.set(false);
@@ -243,47 +255,48 @@ export class SudokuStore {
       this._solution.set(null);
       this.recomputeCandidates();
       this.computeSolutionFromGivens?.();
-      // prewarm (non-blocking)
+
+      // set rating from worker
+      this._rating.set(rating);
+
       setTimeout(() => this.prewarmCache?.(difficulty, symmetry), 0);
     } finally {
       this._busy.set(false);
     }
-
-    this._rating.set(null);
-    this.rateCurrentBoard();
-
-    this.triggerReveal(); // <-- animate initial numbers
+    this.triggerReveal();
   }
 
   /** Pre-generate a few puzzles per difficulty to make "New" feel instant */
   prewarmCache(difficulty: Difficulty, symmetry: 'central' | 'diagonal' | 'none') {
-    const targetSize = 3; // small to avoid perf hit
+    const targetSize = 3;
     const list = this._pool.get(difficulty) ?? [];
     if (list.length >= targetSize) return;
 
-    // generate 1–2 more asynchronously
     const need = targetSize - list.length;
     let produced = 0;
 
-    const tick = () => {
-      if (produced >= need) {
-        this._pool.set(difficulty, list);
-        return;
-      }
-      const { board } = generatePuzzle({ difficulty, symmetry });
-      const h = this.puzzleHash(board);
-      if (!this.isRecent(difficulty, h) && !list.some(b => this.puzzleHash(b) === h)) {
-        list.push(board);
-        produced++;
-      }
-      setTimeout(tick, 0);
+    const step = async () => {
+      if (produced >= need) { this._pool.set(difficulty, list); return; }
+      try {
+        const { board, rating } = await this.genInWorker(difficulty, symmetry);
+        const h = this.puzzleHash(board);
+        if (!this.isRecent(difficulty, h) && !list.some(x => this.puzzleHash(x.board) === h)) {
+          list.push({ board, rating });
+          produced++;
+        }
+      } catch { }
+      setTimeout(step, 0);
     };
-    setTimeout(tick, 0);
+    setTimeout(step, 0);
   }
 
   rateCurrentBoard() {
     // rating is synchronous; offload a tick to keep UI snappy
     setTimeout(() => this._rating.set(ratePuzzle(this._board())), 0);
+  }
+
+  flashActive(): boolean {
+    return this._flashes().length > 0;
   }
 
   private puzzleHash(b: Board): string {
@@ -306,34 +319,6 @@ export class SudokuStore {
   private isRecent(d: Difficulty, hash: string) {
     const cur = this._recentHashes();
     return (cur?.[d] ?? []).includes(hash);
-  }
-
-  private getFromPoolOrGenerate(difficulty: Difficulty, symmetry: 'central' | 'diagonal' | 'none'): Board {
-    const list = this._pool.get(difficulty) ?? [];
-    // fetch a non-recent board, if present
-    while (list.length) {
-      const b = list.shift()!;
-      const h = this.puzzleHash(b);
-      if (!this.isRecent(difficulty, h)) {
-        this._pool.set(difficulty, list);
-        this.pushRecent(difficulty, h);
-        return b;
-      }
-    }
-
-    // otherwise, generate fresh until unique (cap attempts)
-    for (let tries = 0; tries < 8; tries++) {
-      const { board } = generatePuzzle({ difficulty, symmetry });
-      const h = this.puzzleHash(board);
-      if (!this.isRecent(difficulty, h)) {
-        this.pushRecent(difficulty, h);
-        return board;
-      }
-    }
-    // fallback: last generated
-    const { board } = generatePuzzle({ difficulty, symmetry });
-    this.pushRecent(difficulty, this.puzzleHash(board));
-    return board;
   }
 
   private computeSolutionFromGivens() {
@@ -374,14 +359,81 @@ export class SudokuStore {
 
   private triggerUnitFlash(r: number, c: number) {
     const box = this.boxIndex(r, c);
-    const flashes: Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }> = [];
-    if (this.isRowComplete(r)) flashes.push({ kind: 'row', index: r, origin: { r, c } });
-    if (this.isColComplete(c)) flashes.push({ kind: 'col', index: c, origin: { r, c } });
-    if (this.isBoxComplete(box)) flashes.push({ kind: 'box', index: box, origin: { r, c } });
+    const fs: Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }> = [];
+    if (this.isRowComplete(r)) fs.push({ kind: 'row', index: r, origin: { r, c } });
+    if (this.isColComplete(c)) fs.push({ kind: 'col', index: c, origin: { r, c } });
+    if (this.isBoxComplete(box)) fs.push({ kind: 'box', index: box, origin: { r, c } });
 
-    if (!flashes.length) return;
-    // show first; (optional) schedule others if >1
-    this._flash.set(flashes[0]);
-    setTimeout(() => this._flash.set(null), 650);
+    if (!fs.length) return;
+    this._flashes.set(fs);              // set all at once
+    setTimeout(() => this._flashes.set([]), 700);
+  }
+
+  private nextFrame(): Promise<void> {
+    return new Promise(res => requestAnimationFrame(() => res()));
+  }
+
+  private getWorker(): Worker {
+    if (this._worker) return this._worker;
+    this._worker = new Worker(new URL('../workers/sudoku.worker.ts', import.meta.url), { type: 'module' });
+    return this._worker;
+  }
+
+  private genInWorker(d: Difficulty, sym: 'central' | 'diagonal' | 'none'): Promise<{ board: Board; rating: DifficultyRating }> {
+    return new Promise((resolve, reject) => {
+      const w = this.getWorker();
+      const onMessage = (e: MessageEvent<{ board: Board; rating: DifficultyRating }>) => {
+        w.removeEventListener('message', onMessage);
+        w.removeEventListener('error', onError);
+        resolve(e.data);
+      };
+      const onError = (err: any) => { /* ...same as before... */ };
+      w.addEventListener('message', onMessage);
+      w.addEventListener('error', onError);
+      w.postMessage({ type: 'generate', difficulty: d, symmetry: sym });
+    });
+  }
+
+  private async getFromPoolOrGenerateAsync(d: Difficulty, sym: 'central' | 'diagonal' | 'none'):
+    Promise<{ board: Board; rating: DifficultyRating }> {
+
+    const list = this._pool.get(d) ?? [];
+    while (list.length) {
+      const item = list.shift()!;
+      const h = this.puzzleHash(item.board);
+      if (!this.isRecent(d, h)) {
+        this._pool.set(d, list);
+        this.pushRecent(d, h);
+        return item; // { board, rating }
+      }
+    }
+
+    for (let tries = 0; tries < 6; tries++) {
+      const { board, rating } = await this.genInWorker(d, sym);
+      const h = this.puzzleHash(board);
+      if (!this.isRecent(d, h)) {
+        this.pushRecent(d, h);
+        return { board, rating };
+      }
+      await this.nextFrame();
+    }
+
+    const { board, rating } = await this.genInWorker(d, sym);
+    this.pushRecent(d, this.puzzleHash(board));
+    return { board, rating };
+  }
+
+  // helper: is board fully filled (after a move)
+  private isSolvedBoard(): boolean {
+    const b = this._board();
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (!b[r][c].value) return false;
+    return true;
+  }
+
+  // NEW: full puzzle ripple
+  private triggerWinRipple(r: number, c: number) {
+    this._flashes?.set?.([]);            // ensure no competing overlays
+    this._win.set({ r, c });
+    setTimeout(() => this._win.set(null), 900);
   }
 }

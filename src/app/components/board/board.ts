@@ -182,26 +182,32 @@ export class Board {
   }
 
   hasFlashAt(r: number, c: number): boolean {
-    const f = this.store.flash();
-    if (!f) return false;
-    if (f.kind === 'row') return f.index === r;
-    if (f.kind === 'col') return f.index === c;
-    // box
-    const b = Math.floor(r / 3) * 3 + Math.floor(c / 3);
-    return f.index === b;
+    const fs = this.store.flashes();
+    if (!fs.length) return false;
+    for (const f of fs) {
+      if (f.kind === 'row' && f.index === r) return true;
+      if (f.kind === 'col' && f.index === c) return true;
+      if (f.kind === 'box') {
+        const b = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+        if (b === f.index) return true;
+      }
+    }
+    return false;
   }
 
   flashDelay(r: number, c: number): string | null {
-    const f = this.store.flash(); if (!f) return null;
-    const o = f.origin;
-    let steps = 0;
-    if (f.kind === 'row') steps = Math.abs(c - o.c);
-    else if (f.kind === 'col') steps = Math.abs(r - o.r);
-    else {
-      // box: manhattan distance within the 3x3
-      steps = Math.abs(r - o.r) + Math.abs(c - o.c);
+    const fs = this.store.flashes();
+    if (!fs.length) return null;
+    let best = 0;
+    for (const f of fs) {
+      const o = f.origin;
+      let steps = 0;
+      if (f.kind === 'row') steps = Math.abs(c - o.c);
+      else if (f.kind === 'col') steps = Math.abs(r - o.r);
+      else steps = Math.abs(r - o.r) + Math.abs(c - o.c); // box
+      if (steps > best) best = steps; // choose max for a clearer wave
     }
-    return `${steps * 60}ms`;
+    return `${best * 60}ms`;
   }
 
   private moveSelection(r: number, c: number, key: string, shiftTab: boolean) {

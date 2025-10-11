@@ -34,6 +34,7 @@ export function generatePuzzle(opts: GenerateOptions = {}): GeneratedPuzzle {
   let failures = 0;
   const positions = shuffledIndices(rng); // 0..80 shuffled
   let removalCursor = 0;
+  const targetClueFloor = opts.difficulty === 'easy' ? 40 : 0; // keep ≥ 40 givens for easy
 
   while (failures < maxRemoveFailures && removalCursor < positions.length) {
     const idx = positions[removalCursor++];
@@ -66,6 +67,14 @@ export function generatePuzzle(opts: GenerateOptions = {}): GeneratedPuzzle {
       failures++;
       continue;
     }
+
+    if (failures === 0) {
+      // ...you just kept 'puzzle' with removed givens...
+      if (opts.difficulty === 'easy' && countClues(puzzle) <= targetClueFloor) {
+        break; // stop digging early to keep the grid easy
+      }
+    }
+
     // successful removal
     failures = 0;
   }
@@ -77,9 +86,23 @@ export function generatePuzzle(opts: GenerateOptions = {}): GeneratedPuzzle {
   const rating = ratePuzzle(puzzle);
 
   // Optionally, if asked difficulty not matched closely, re-generate (simple loop).
-  if (opts.difficulty && rating.bucket !== opts.difficulty) {
-    // naive retrial loop; in real app, wrap in UI "Try again" or cap attempts
-    return generatePuzzle(opts);
+  if (opts.difficulty === 'easy') {
+    const by = rating.byTechnique || {};
+    const hardish = (by['Swordfish'] || 0) + (by['Jellyfish'] || 0) + (by['Skyscraper'] || 0) + (by['XY-Wing'] || 0) + (by['W-Wing'] || 0) + (by['XYZ-Wing'] || 0) + (by['BUG'] || 0);
+    const mediumish = (by['Locked Candidates'] || 0) + (by['Hidden Pair'] || 0) + (by['Naked Pair'] || 0);
+    const singles = (by['Naked Single'] || 0) + (by['Hidden Single'] || 0);
+
+    const looksEasy =
+      rating.bucket === 'easy' &&                // solver’s own bucket
+      hardish === 0 &&                           // forbid hard techniques
+      mediumish <= 2 &&                          // very few medium steps
+      rating.steps <= 50 &&                      // short solve path
+      singles >= 10;                             // plenty of singles
+
+    if (!looksEasy) {
+      // regenerate until we hit criteria (you already re-call generatePuzzle when bucket mismatches)
+      return generatePuzzle(opts);
+    }
   }
 
   return { board: puzzle, rating };
@@ -210,4 +233,10 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function countClues(b: Board): number {
+  let n = 0;
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (b[r][c].given && b[r][c].value) n++;
+  return n;
 }

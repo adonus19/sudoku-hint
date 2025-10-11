@@ -253,23 +253,25 @@
  .cell.unit-flash {
    position: relative;
    overflow: hidden;
+   z-index: 1;
+   /* ensure overlay above selection bg */
  }
 
  .cell.unit-flash::after {
    content: '';
    position: absolute;
    inset: 0;
-  background: rgba(76, 175, 80, 0.30);
-    /* #4CAF50 @ 30% */
+   background: rgba(76, 175, 80, 0.45);
+   /* brighter green */
    opacity: 0;
    transform: scale(.92);
-   animation: unitFlash .55s ease-out forwards;
+   animation: unitFlash .6s ease-out forwards;
    animation-delay: var(--delay, 0ms);
  }
 
  @keyframes unitFlash {
    10% {
-     opacity: .9;
+     opacity: .95;
    }
 
    50% {
@@ -280,5 +282,55 @@
    100% {
      opacity: 0;
      transform: scale(1.00);
+   }
+ }
+
+ /* Optional: while any flash is active, slightly dim the base hl to avoid clash */
+ .flash-active .cell.hl-row,
+ .flash-active .cell.hl-col,
+ .flash-active .cell.hl-box {
+   background: rgba(25, 118, 210, .04);
+ }
+
+ /* Full puzzle completion ripple from --ox/--oy */
+ .board.win::before {
+   content: '';
+   position: absolute;
+   inset: 0;
+   pointer-events: none;
+   background: radial-gradient(circle at var(--ox, 50%) var(--oy, 50%),
+       rgba(76, 175, 80, 0.28) 0%,
+       rgba(76, 175, 80, 0.22) 12%,
+       rgba(76, 175, 80, 0.12) 28%,
+       rgba(76, 175, 80, 0.00) 60%);
+   opacity: 0;
+   animation: winRipple 900ms ease-out forwards;
+   z-index: 999;
+ }
+
+ /* while the win ripple runs, suppress unit flashes completely */
+ .board.win .cell.unit-flash::after {
+   animation: none !important;
+   opacity: 0 !important;
+ }
+
+ @keyframes winRipple {
+   0% {
+     opacity: 0;
+     transform: scale(0.85);
+   }
+
+   12% {
+     opacity: .95;
+     transform: scale(1.00);
+   }
+
+   60% {
+     opacity: .55;
+   }
+
+   100% {
+     opacity: 0;
+     transform: scale(1.08);
    }
  }

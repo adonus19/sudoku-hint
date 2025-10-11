@@ -48,6 +48,10 @@
       tabindex="0"
       (click)="focusBoard()"
       [class.reveal]="store.reveal()"
+      [class.flash-active]="store.flashActive()"
+      [class.win]="!!store.win()"
+      [style.--ox]="store.win() ? ( (store.win()!.c + 0.5) / 9 * 100 ) + '%' : null"
+      [style.--oy]="store.win() ? ( (store.win()!.r + 0.5) / 9 * 100 ) + '%' : null"
     >
       @for (r of rows; track $index) {
       <div
