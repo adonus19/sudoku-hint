@@ -19,7 +19,7 @@
 
   @if (store.rating()) {
   <div class="difficulty-label">
-    Difficulty: {{ store.rating()!.bucket }}
+    Difficulty: {{ store.rating()!.bucket | titlecase}}
   </div>
   }
 
