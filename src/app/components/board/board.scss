@@ -247,13 +247,6 @@
    /* top→bottom */
  }
 
- @keyframes valReveal {
-   to {
-     opacity: 1;
-     transform: none;
-   }
- }
-
  /* Unit completion flash: wave from the last entered cell */
  .cell.unit-flash {
    position: relative;
@@ -355,6 +348,13 @@
  .board.win .cell.unit-flash::after {
    animation: none !important;
    opacity: 0 !important;
+ }
+
+ @keyframes valReveal {
+   to {
+     opacity: 1;
+     transform: none;
+   }
  }
 
  @keyframes unitFlash {

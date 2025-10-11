@@ -279,6 +279,11 @@ export class SudokuStore {
       if (produced >= need) { this._pool.set(difficulty, list); return; }
       try {
         const { board, rating } = await this.genInWorker(difficulty, symmetry);
+        // NEW: accept only matching bucket
+        if (rating?.bucket !== difficulty) {
+          setTimeout(step, 0);
+          return;
+        }
         const h = this.puzzleHash(board);
         if (!this.isRecent(difficulty, h) && !list.some(x => this.puzzleHash(x.board) === h)) {
           list.push({ board, rating });
@@ -394,22 +399,33 @@ export class SudokuStore {
     });
   }
 
-  private async getFromPoolOrGenerateAsync(d: Difficulty, sym: 'central' | 'diagonal' | 'none'):
-    Promise<{ board: Board; rating: DifficultyRating }> {
+  private async getFromPoolOrGenerateAsync(
+    d: Difficulty,
+    sym: 'central' | 'diagonal' | 'none'
+  ): Promise<{ board: Board; rating: DifficultyRating }> {
 
     const list = this._pool.get(d) ?? [];
     while (list.length) {
       const item = list.shift()!;
       const h = this.puzzleHash(item.board);
+      // NEW: skip if bucket mismatch
+      if (item.rating?.bucket !== d) {
+        continue; // keep discarding until we find a matching bucket
+      }
       if (!this.isRecent(d, h)) {
         this._pool.set(d, list);
         this.pushRecent(d, h);
-        return item; // { board, rating }
+        return item; // correct bucket
       }
     }
 
-    for (let tries = 0; tries < 6; tries++) {
+    // NEW: try more times but *require* correct bucket
+    for (let tries = 0; tries < 12; tries++) {
       const { board, rating } = await this.genInWorker(d, sym);
+      if (rating?.bucket !== d) {
+        await this.nextFrame();
+        continue; // reject and regenerate
+      }
       const h = this.puzzleHash(board);
       if (!this.isRecent(d, h)) {
         this.pushRecent(d, h);
@@ -418,9 +434,18 @@ export class SudokuStore {
       await this.nextFrame();
     }
 
-    const { board, rating } = await this.genInWorker(d, sym);
-    this.pushRecent(d, this.puzzleHash(board));
-    return { board, rating };
+    // Fallback: keep trying until bucket matches; last resort after cap
+    // (prevents returning a wrong-bucket board)
+    // You can keep a hard cap if desired.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { board, rating } = await this.genInWorker(d, sym);
+      if (rating?.bucket === d) {
+        this.pushRecent(d, this.puzzleHash(board));
+        return { board, rating };
+      }
+      await this.nextFrame();
+    }
   }
 
   // helper: is board fully filled (after a move)
