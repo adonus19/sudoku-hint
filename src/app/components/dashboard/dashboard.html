@@ -1,0 +1,55 @@
+<div class="dash">
+  <mat-card class="hero">
+    <div class="title">
+      <mat-icon>lightbulb</mat-icon>
+      <div>
+        <h1>Welcome</h1>
+        <p class="sub">Solve any Sudoku — or learn it step by step.</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="manualEntry()"
+      >
+        <mat-icon>edit</mat-icon>&nbsp;Manual Entry
+      </button>
+      <button
+        mat-stroked-button
+        (click)="importCsv()"
+      >
+        <mat-icon>file_upload</mat-icon>&nbsp;Import CSV
+      </button>
+      <button
+        mat-stroked-button
+        (click)="importPhoto()"
+      >
+        <mat-icon>photo_camera</mat-icon>&nbsp;Import Photo
+      </button>
+      <button
+        mat-stroked-button
+        (click)="generatePuzzle()"
+      >
+        <mat-icon>auto_awesome</mat-icon>&nbsp;Generate Puzzle
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Future: stats cards (placeholders) -->
+  <div class="stats">
+    <mat-card class="stat">
+      <div class="k">Fastest Time (Easy)</div>
+      <div class="v">—</div>
+    </mat-card>
+    <mat-card class="stat">
+      <div class="k">Puzzles Solved</div>
+      <div class="v">—</div>
+    </mat-card>
+    <mat-card class="stat">
+      <div class="k">Total Hints Used</div>
+      <div class="v">—</div>
+    </mat-card>
+  </div>
+</div>

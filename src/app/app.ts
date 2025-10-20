@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,20 +10,18 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
 
-import { Board } from './components/board/board';
 import { SudokuStore } from './data/sudoku.store';
 import { ImportDialog } from './components/import-dialog/import-dialog';
 import { HintService } from './hint/hint.service';
 import { HintDialog } from './components/hint-dialog/hint-dialog';
 import { HintSheet } from './components/hint-sheet/hint-sheet';
-import { NumberPad } from './controls/number-pad/number-pad';
 import { ImageImport } from './components/image-import/image-import';
 import { Difficulty, NewPuzzleDialog, Symmetry } from './components/new-puzzle-dialog/new-puzzle-dialog';
 
 @Component({
   selector: 'app-root',
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatSlideToggleModule, MatDialogModule,
-    MatMenuModule, MatTooltipModule, MatBottomSheetModule, Board, NumberPad],
+  imports: [RouterModule, MatToolbarModule, MatButtonModule, MatIconModule, MatSlideToggleModule, MatDialogModule,
+    MatMenuModule, MatTooltipModule, MatBottomSheetModule],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

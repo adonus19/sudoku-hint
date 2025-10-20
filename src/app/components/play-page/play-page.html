@@ -1,0 +1,81 @@
+<div class="play-wrap safe-bottom">
+  <div class="hud">
+    <div class="hud-item score">—</div>
+    <div class="hud-item diff">{{ (store.rating()?.bucket || '—') | titlecase }}</div>
+    <div class="hud-item time">—:—</div>
+  </div>
+
+  <!-- REMOVE the old .controls block entirely -->
+
+  <div class="board-wrap">
+    <app-board></app-board>
+  </div>
+
+  <!-- NEW: tools row under board, above keypad -->
+  <div
+    class="tools"
+    role="toolbar"
+    aria-label="Board tools"
+  >
+    <button
+      class="tool ghost tool--reset"
+      type="button"
+      (click)="store.resetPencils()"
+      aria-label="Reset pencils"
+    >
+      <mat-icon class="ic">layers_clear</mat-icon>
+      <span class="lbl">Reset Pencils</span>
+    </button>
+
+    <button
+      class="tool ghost tool--undo"
+      type="button"
+      (click)="undo()"
+      aria-label="Undo"
+    >
+      <mat-icon class="ic">undo</mat-icon>
+      <span class="lbl">Undo</span>
+    </button>
+
+    <button
+      class="tool ghost tool--erase"
+      type="button"
+      (click)="erase()"
+      aria-label="Erase"
+    >
+      <mat-icon class="ic">backspace</mat-icon>
+      <span class="lbl">Erase</span>
+    </button>
+
+    <button
+      class="tool ghost tool--pencil"
+      type="button"
+      (click)="togglePencil()"
+      [attr.aria-pressed]="store.pencilMode()"
+    >
+      <mat-icon class="ic">edit_note</mat-icon>
+      <span class="lbl">Pencil</span>
+      <span
+        class="badge"
+        [class.on]="store.pencilMode()"
+      >{{ store.pencilMode() ? 'ON' : 'OFF' }}</span>
+    </button>
+
+    <button
+      class="tool ghost tool--hint"
+      type="button"
+      (click)="openHint()"
+      aria-label="Hint"
+    >
+      <mat-icon class="ic">lightbulb</mat-icon>
+      <span class="lbl">Hint</span>
+    </button>
+  </div>
+
+  <app-number-pad class="pad"></app-number-pad>
+
+  <div
+    class="ad-reserve"
+    aria-hidden="true"
+  ></div>
+</div>

@@ -4,6 +4,24 @@
 >
   <span class="brand">Sudoku Solver</span>
   <span class="spacer"></span>
+  <a
+    mat-button
+    routerLink="/home"
+  >Home</a>
+  <a
+    mat-button
+    routerLink="/play"
+  >Play</a>
+</mat-toolbar>
+
+<router-outlet></router-outlet>
+
+<!-- <mat-toolbar
+  color="primary"
+  class="topbar"
+>
+  <span class="brand">Sudoku Solver</span>
+  <span class="spacer"></span>
 
   <div class="bar-controls hide-sm">
     <button
@@ -13,9 +31,10 @@
     <button
       mat-button
       (click)="openImport()"
-    ><mat-icon>file_upload</mat-icon> Import</button>
-    <!-- NEW: Import Image -->
-    <button
+    ><mat-icon>file_upload</mat-icon> Import</button> -->
+
+<!-- NEW: Import Image -->
+<!-- <button
       mat-button
       (click)="openImportImage()"
     ><mat-icon>photo_camera</mat-icon> Photo</button>
@@ -45,10 +64,10 @@
       (click)="openNewPuzzle()"
       [disabled]="store.busy()"
     ><mat-icon>auto_awesome</mat-icon> New puzzle…</button>
-  </div>
+  </div> -->
 
-  <!-- mobile overflow menu: add Photo -->
-  <div class="bar-controls show-sm">
+<!-- mobile overflow menu: add Photo -->
+<!-- <div class="bar-controls show-sm">
     <button
       mat-icon-button
       matTooltip="Hint"
@@ -109,4 +128,4 @@
   <app-board></app-board>
   <app-number-pad class="pad-sticky"></app-number-pad>
   <div class="tips">Tip: better results with flat, bright photos.</div>
-</div>
+</div> -->

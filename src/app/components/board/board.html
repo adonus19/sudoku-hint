@@ -17,12 +17,6 @@
   </div>
   }
 
-  @if (store.rating()) {
-  <div class="difficulty-label">
-    Difficulty: {{ store.rating()!.bucket | titlecase}}
-  </div>
-  }
-
   @if (!store.fullScreenBoard()) {
   <div class="col-labels">
     <div class="corner"></div>

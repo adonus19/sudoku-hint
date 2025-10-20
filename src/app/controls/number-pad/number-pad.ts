@@ -35,16 +35,6 @@ export class NumberPad {
     }
   }
 
-  clear() {
-    const sel = this.store.selected();
-    if (!sel) return;
-    this.store.clearCell(sel.r, sel.c);
-  }
-
-  togglePencil() {
-    this.store.togglePencilMode();
-  }
-
   isDigitExhausted(d: number): boolean {
     // Only values count; pencils don’t.
     return this.countByDigit()[d] >= 9;

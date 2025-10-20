@@ -9,16 +9,4 @@
     aria-label="Digit {{ d }}{{ isDigitExhausted(d) && !store.pencilMode() ? ' (complete)' : '' }}"
   >{{ d }}</button>
   }
-  <button
-    class="d"
-    mat-stroked-button
-    (click)="clear()"
-  ><mat-icon>backspace</mat-icon></button>
-  <button
-    class="pencil"
-    mat-flat-button
-    color="primary"
-    (click)="togglePencil()"
-    [class.on]="store.pencilMode()"
-  >Pencil</button>
 </div>

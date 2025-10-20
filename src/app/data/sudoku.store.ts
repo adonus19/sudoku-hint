@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { Board, Digit, Coord } from './sudoku.types';
+import { Board, Digit, Coord, Cell } from './sudoku.types';
 import { createEmptyBoard, setValue, clearValue, detectConflicts, parseBoardString, computeCandidates } from './sudoku.utils';
 import { HintHighlight, HintResult } from '../hint/hint.types';
 import { solveSudoku } from './sudoku.solver';
@@ -24,6 +24,7 @@ export class SudokuStore {
   private _reveal = signal<boolean>(false);
   private _flashes = signal<Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }>>([]);
   private _win = signal<Coord | null>(null);
+  private _history: Board[] = [];
 
   private _pool = new Map<Difficulty, Array<{ board: Board; rating: DifficultyRating }>>(); // small pregen cache
   private _recentHashes = signal<Record<Difficulty, string[]>>(
@@ -86,25 +87,23 @@ export class SudokuStore {
   setCellValue(r: number, c: number, value: Digit, opts?: { asGiven?: boolean }) {
     const asGiven = opts?.asGiven ?? this._editingGivenMode();
     const current = this._board()[r][c];
-    const wasEmpty = current.value === 0; // <-- add
+    const wasEmpty = current.value === 0;
     if (current.given && !asGiven) return;
+
+    this.pushHistory();
     this._board.update(b => setValue(b, r, c, value, asGiven));
     this.recomputeCandidates();
 
     if (!this._editingGivenMode() && wasEmpty) {
-      if (this.isSolvedBoard()) {
-        // NEW: ensure win ripple takes precedence
-        this._flashes?.set?.([]);          // clear any running row/col/box flashes
-        this.triggerWinRipple(r, c);       // fire win ripple (no unit flash)
-      } else {
-        this.triggerUnitFlash(r, c);       // normal unit flash
-      }
+      if (this.isSolvedBoard()) { this._flashes.set([]); this.triggerWinRipple(r, c); }
+      else { this.triggerUnitFlash(r, c); }
     }
   }
 
   clearCell(r: number, c: number) {
     const cur = this._board()[r][c];
     if (cur.given && !this._editingGivenMode()) return;
+    this.pushHistory();
     this._board.update(b => clearValue(b, r, c));
     this.recomputeCandidates();
   }
@@ -126,18 +125,19 @@ export class SudokuStore {
 
   /** Clear all suppressed (and keep manual on? No: reset to pure calc) */
   resetPencils() {
+    this.pushHistory();
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
       suppressed: new Set<number>(),
       manualCands: new Set<number>()
     })));
-
     this._board.set(next);
     this.recomputeCandidates();
   }
 
   /** Toggle a pencil digit in selected cell */
   togglePencilDigit(r: number, c: number, d: number) {
+    this.pushHistory();
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
       candidates: new Set(cell.candidates),
@@ -147,20 +147,13 @@ export class SudokuStore {
     const cell = next[r][c];
     if (cell.value) { this._board.set(next); return; }
 
-    const isVisible = cell.candidates.has(d); // current visible state
+    const isVisible = cell.candidates.has(d);
     const isManual = cell.manualCands.has(d);
 
     if (isVisible) {
-      if (isManual) {
-        // visible via manual -> turn OFF
-        cell.manualCands.delete(d);
-        cell.suppressed.add(d);
-      } else {
-        // visible via auto -> first tap removes (suppress)
-        cell.suppressed.add(d);
-      }
+      if (isManual) { cell.manualCands.delete(d); cell.suppressed.add(d); }
+      else { cell.suppressed.add(d); }
     } else {
-      // not visible -> turn ON manually
       cell.suppressed.delete(d);
       cell.manualCands.add(d);
     }
@@ -175,6 +168,7 @@ export class SudokuStore {
 
   /** Clear all pencils for a cell (why: quick cleanup) */
   clearPencils(r: number, c: number) {
+    this.pushHistory();
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
       candidates: new Set(cell.candidates),
@@ -197,11 +191,10 @@ export class SudokuStore {
 
   // Apply hint result and refresh
   applyHint(h: HintResult) {
-    console.log(h);
+    this.pushHistory();
     this._board.update(b => h.apply(b));
     this.recomputeCandidates();
     this._hl.set(null);
-    // keep selection on target for continuity
     this._selected.set({ r: h.target.r, c: h.target.c });
   }
 
@@ -302,6 +295,34 @@ export class SudokuStore {
 
   flashActive(): boolean {
     return this._flashes().length > 0;
+  }
+
+  undo() {
+    const prev = this._history.pop();
+    if (!prev) return;
+    this._board.set(this.cloneBoard(prev));
+    this.recomputeCandidates();
+  }
+
+  eraseAt(r: number, c: number) {
+    const cell = this._board()[r][c];
+    // if a user-entered value exists → clear value; otherwise clear pencils
+    if (cell.value && (!cell.given || this._editingGivenMode())) {
+      this.pushHistory();
+      this._board.update(b => clearValue(b, r, c));
+      this.recomputeCandidates();
+    } else {
+      this.pushHistory();
+      // clear pencils only
+      const next = this.cloneBoard(this._board());
+      const cur = next[r][c];
+      next[r][c] = {
+        ...cur,
+        suppressed: new Set<number>(),
+        manualCands: new Set<number>()
+      };
+      this._board.set(computeCandidates(next));
+    }
   }
 
   private puzzleHash(b: Board): string {
@@ -463,5 +484,20 @@ export class SudokuStore {
       this._win.set({ r, c });
       setTimeout(() => this._win.set(null), 1200);
     });
+  }
+
+  private cloneBoard(b: Board): Cell[][] {
+    return b.map(row => row.map(cell => ({
+      ...cell,
+      candidates: new Set(cell.candidates),
+      suppressed: new Set(cell.suppressed),
+      manualCands: new Set(cell.manualCands)
+    })));
+  }
+
+  private pushHistory() {
+    const snap = this.cloneBoard(this._board());
+    this._history.push(snap);
+    if (this._history.length > 100) this._history.shift();
   }
 }

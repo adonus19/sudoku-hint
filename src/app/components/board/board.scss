@@ -7,9 +7,15 @@
 
  @media (max-width: 599px) {
    :host {
-     --cell: clamp(40px, 10.5vw, 64px);
-     --label: 14px;
-     --gap: 3px;
+     --cell: clamp(33px, 10.2vw, 50px);
+     /* a bit larger, still safe */
+     --label: 12px;
+     --gap: 2px;
+   }
+
+   .board-outer {
+     max-width: 100%;
+     overflow: hidden;
    }
  }
 
@@ -19,6 +25,7 @@
    max-width: 100%;
    margin: 0 auto;
    position: relative;
+   overflow: hidden;
  }
 
  .loading-overlay {
@@ -49,13 +56,23 @@
    margin-bottom: var(--gap);
  }
 
- .col-label,
- .row-label {
-   text-align: center;
-   font-size: var(--label);
-   color: rgba(0, 0, 0, .7);
+ .col-label {
+   display: grid;
+   /* NEW */
+   place-items: center;
+   /* NEW: vertical centering */
+   height: var(--label);
    line-height: 1;
  }
+
+ //  .col-label,
+ //  .row-label {
+ //    text-align: center;
+ //    font-size: var(--label);
+ //    color: rgba(0, 0, 0, .7);
+ //    line-height: 1;
+ //  }
+
 
  .corner {
    width: calc(var(--label) + var(--gap));
@@ -72,15 +89,19 @@
    margin-right: var(--gap);
  }
 
+ .row-label {
+   display: grid;
+   /* NEW */
+   place-items: center;
+   /* NEW */
+   height: var(--cell);
+ }
+
  .board {
-   display: inline-block;
-   outline: none;
-   border: 2px solid rgba(0, 0, 0, .6);
-   width: calc(9 * var(--cell));
    position: relative;
-   /* NEW: required for ::before positioning */
    overflow: hidden;
-   /* NEW: keep ripple/confetti inside */
+   width: min(calc(9 * var(--cell)), 100%);
+   margin-inline: auto;
  }
 
  /* Cells/pencils (unchanged below) */
@@ -96,6 +117,7 @@
    font-size: calc(var(--cell) * 0.38);
    line-height: 1;
    position: relative;
+   box-sizing: border-box;
  }
 
  .cell .val {
@@ -111,18 +133,24 @@
    place-items: center;
    font-size: calc(var(--cell) * 0.2);
    color: rgba(0, 0, 0, .38);
+   padding: 0;
  }
 
  .p {
+   display: grid;
+   /* NEW: keeps glyph perfectly centered */
+   place-items: center;
+   /* NEW */
+   padding: 0;
    opacity: 0;
    border-radius: 2px;
-   padding: 2px 4px;
    user-select: none;
    pointer-events: none;
  }
 
  .p.on {
    opacity: 1;
+   padding: 2px;
  }
 
  .p.cand-match {

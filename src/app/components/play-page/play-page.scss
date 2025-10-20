@@ -1,0 +1,158 @@
+:root {
+  --theme-accent: var(--mat-mdc-slide-toggle-selected-handle-color, #3f51b5);
+  --hud-fg: rgba(0, 0, 0, .3);
+  /* lighter Score/Diff/Timer */
+}
+
+.play-wrap {
+  display: grid;
+  gap: 8px;
+  padding-inline: clamp(6px, 2vw, 12px);
+  padding-block: 10px;
+  max-width: 100%;
+}
+
+.hud {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  /* score • diff • time */
+  align-items: center;
+  gap: 8px;
+  font-weight: 200;
+  color: rgba(0, 0, 0, .6);
+}
+
+
+
+.hud .score {
+  justify-self: start;
+}
+
+.hud .diff {
+  justify-self: center;
+}
+
+.hud .time {
+  justify-self: end;
+}
+
+.board-wrap {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+/* NEW: ghost tool buttons under the board */
+.tools {
+  display: grid;
+  grid-auto-flow: column;
+  /* force horizontal flow */
+  grid-auto-columns: 1fr;
+  grid-template-columns: repeat(5, 1fr);
+  /* 5 tools */
+  gap: 10px;
+  align-items: start;
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.tool.ghost {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--hud-fg);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.tool.ghost .ic {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+}
+
+.tool.ghost .lbl {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tool.ghost:focus-visible {
+  outline: 2px solid rgba(25, 118, 210, .75);
+  outline-offset: 2px;
+}
+
+.tool.ghost:hover {
+  color: rgba(25, 118, 210, .95);
+}
+
+/* Theme accents */
+.tool--hint .ic,
+.tool--reset .ic {
+  color: var(--theme-accent);
+}
+
+/* Pencil ON/OFF badge */
+.tool--pencil {
+  position: relative;
+}
+
+.tool--pencil .badge {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: #bbb;
+  color: #fff;
+}
+
+.tool--pencil .badge.on {
+  background: var(--theme-accent);
+}
+
+
+.pad {
+  margin: 6px auto 0;
+  width: 100%;
+  max-width: 520px;
+}
+
+.ad-reserve {
+  min-height: 64px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 599px) {
+  .play-wrap {
+    gap: 6px;
+    padding-inline: clamp(4px, 2vw, 8px);
+  }
+
+  .pad {
+    max-width: 408px;
+  }
+
+  .tools {
+    gap: 6px;
+    grid-template-columns: repeat(5, 1fr);
+    /* keep single row on phones */
+    max-width: 100%;
+  }
+
+  .tool.ghost .ic {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .tool.ghost .lbl {
+    font-size: 11px;
+  }
+}
