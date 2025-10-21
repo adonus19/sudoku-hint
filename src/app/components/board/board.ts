@@ -23,7 +23,21 @@ export class Board {
   private hasFocus = signal<boolean>(false);
   private hovered = signal<Coord | null>(null);
 
-  constructor() { effect(() => { if (!this.store.selected()) this.store.select(0, 0); }); }
+  constructor() {
+    effect(() => {
+      if (!this.store.selected()) this.store.select(0, 0);
+    });
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisChange() {
+    if (document.hidden) this.store.pauseTimer();
+    else this.store.resumeTimer();
+  }
+
+  floatersAt(r: number, c: number) {
+    return this.store.floaters().filter(f => f.r === r && f.c === c);
+  }
 
   rowLetter(r: number) {
     return ROW_LETTERS[r];

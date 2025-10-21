@@ -1,8 +1,11 @@
 <div class="play-wrap safe-bottom">
   <div class="hud">
-    <div class="hud-item score">—</div>
+    <div
+      class="hud-item score"
+      [class.bump]="store.scoreBump()"
+    >{{ store.score() }}</div>
     <div class="hud-item diff">{{ (store.rating()?.bucket || '—') | titlecase }}</div>
-    <div class="hud-item time">—:—</div>
+    <div class="hud-item time">{{ store.timerLabel() }}</div>
   </div>
 
   <!-- REMOVE the old .controls block entirely -->

@@ -76,6 +76,11 @@
           [style.--delay]="flashDelay(r,c)"
         >
 
+          <!-- points floater -->
+          @for (f of floatersAt(r,c); track f.id) {
+          <div class="points-floater">{{ f.text }}</div>
+          }
+
           @if (hasValue(r,c)) {
           <span class="val">{{ cellValue(r,c) }}</span>
           } @else {

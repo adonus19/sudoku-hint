@@ -22,7 +22,13 @@
   color: rgba(0, 0, 0, .6);
 }
 
-
+/* animated score bump (bind class on the HUD element) */
+.hud .score.bump {
+  color: #2e7d32;
+  /* green while ticking */
+  transform: scale(1.4);
+  transition: transform 180ms ease, color 180ms ease;
+}
 
 .hud .score {
   justify-self: start;

@@ -378,6 +378,46 @@
    opacity: 0 !important;
  }
 
+ /* Points popup inside a cell (+95 / -50) */
+ .points-floater {
+   position: absolute;
+   top: 0;
+   left: 50%;
+   transform: translate(-50%, -10px);
+   font-size: calc(var(--cell) * 0.4);
+   font-weight: 700;
+   color: rgba(25, 118, 210, .95);
+   /* theme-ish blue; tweak if you like */
+   opacity: 0;
+   pointer-events: none;
+   animation: floaterUp 650ms ease-out forwards;
+ }
+
+ .points-floater::first-letter {
+   /* if minus, keep readable */
+   color: rgba(211, 47, 47, 1);
+ }
+
+ @keyframes floaterUp {
+   0% {
+     opacity: 0;
+     transform: translate(-50%, -5px) scale(.98);
+     z-index: 9999999;
+   }
+
+   15% {
+     opacity: 1;
+     transform: translate(-50%, -10px) scale(1.2);
+     z-index: 9999999;
+   }
+
+   100% {
+     opacity: 0;
+     transform: translate(-50%, -20px) scale(1.4);
+     z-index: 9999999;
+   }
+ }
+
  @keyframes valReveal {
    to {
      opacity: 1;

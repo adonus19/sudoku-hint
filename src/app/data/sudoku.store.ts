@@ -7,6 +7,13 @@ import { generatePuzzle } from './sudoku.generator';
 import type { Difficulty } from '../components/new-puzzle-dialog/new-puzzle-dialog';
 import { DifficultyRating, ratePuzzle } from './sudoku.rater';
 
+type UndoEntry = {
+  r: number; c: number;
+  before: { value: Digit; given: boolean; suppressed: Set<number>; manualCands: Set<number> };
+  after: { value: Digit; given: boolean; suppressed: Set<number>; manualCands: Set<number> };
+  scoreDelta: number; // what we applied when doing the action (e.g. -50 for a wrong entry)
+};
+
 @Injectable({
   providedIn: 'root'
 })
@@ -25,6 +32,26 @@ export class SudokuStore {
   private _flashes = signal<Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }>>([]);
   private _win = signal<Coord | null>(null);
   private _history: Board[] = [];
+
+  // difficulty context (for multiplier)
+  private _currentDifficulty = signal<Difficulty>('easy');
+
+  // ----- timer & score -----
+  private _timerSec = signal<number>(0);
+  private _timerId: any = null;
+
+  // ---- score (raw vs shown for animation) ----
+  private _scoreRaw = signal<number>(0);
+  private _scoreShown = signal<number>(0);
+  private _scoreBumping = signal<boolean>(false);
+  private _scored = new Set<string>(); // cells already rewarded "r,c"
+
+  // little “+95 / -50” floaters
+  private _floaters = signal<Array<{ id: number; r: number; c: number; text: string }>>([]);
+  private _floaterId = 0;
+
+  private _undo: UndoEntry[] = [];
+  private readonly _undoLimit = 3;
 
   private _pool = new Map<Difficulty, Array<{ board: Board; rating: DifficultyRating }>>(); // small pregen cache
   private _recentHashes = signal<Record<Difficulty, string[]>>(
@@ -51,6 +78,18 @@ export class SudokuStore {
   flashes = this._flashes.asReadonly();
   win = this._win.asReadonly();
 
+  // HUD
+  score = computed(() => this._scoreShown());
+  timerLabel = computed(() => {
+    const s = this._timerSec();
+    const m = Math.floor(s / 60);
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${m}:${ss}`;
+  });
+
+  scoreBump = computed(() => this._scoreBumping());
+  floaters = this._floaters.asReadonly();
+
   resetBoard() {
     this._board.set(createEmptyBoard());
     this._selected.set(null);
@@ -58,6 +97,13 @@ export class SudokuStore {
     this._pencilMode.set(false);
     this._hl.set(null);
     this._solution.set(null);
+    this.resetTimer();
+    this._scoreRaw.set(0);
+    this._scoreShown.set(0);
+    this._scored.clear();
+    this._undo = [];
+    this._win.set(null);
+    this._flashes.set([]);
   }
 
   toggleFullScreenBoard() {
@@ -69,10 +115,12 @@ export class SudokuStore {
     if (!this._editingGivenMode()) {
       this.computeSolutionFromGivens?.();
       this._rating.set(null);
-      this.rateCurrentBoard(); // stays on main thread for user boards
+      this.rateCurrentBoard();
+      this.startTimer(5000); // start when user leaves given mode (imports)
     } else {
       this._solution?.set(null);
       this._rating.set(null);
+      this.resetTimer();
     }
   }
 
@@ -90,13 +138,50 @@ export class SudokuStore {
     const wasEmpty = current.value === 0;
     if (current.given && !asGiven) return;
 
-    this.pushHistory();
+    // snapshot BEFORE for undo (only if it's an action we might undo)
+    const before = (!asGiven) ? this.snapshotCell(r, c) : null;
+
     this._board.update(b => setValue(b, r, c, value, asGiven));
     this.recomputeCandidates();
 
-    if (!this._editingGivenMode() && wasEmpty) {
-      if (this.isSolvedBoard()) { this._flashes.set([]); this.triggerWinRipple(r, c); }
-      else { this.triggerUnitFlash(r, c); }
+    if (asGiven) return; // givens: no scoring/undo/animation
+
+    const sol = this._solution();
+    const key = `${r},${c}`;
+
+    if (wasEmpty) {
+      if (sol && value === sol[r][c]) {
+        // CORRECT: score (once), show floater, clear undo history
+        if (!this._scored.has(key)) {
+          const pts = Math.round(this.basePointsNow() * this.multiplier(this._currentDifficulty()));
+          this._scored.add(key);
+          this.showFloater(r, c, `+${pts}`);
+          setTimeout(() => this.applyScoreDelta(pts), 600);
+        }
+        this._undo = []; // clear history on correct entry
+
+        // animations
+        if (this.isSolvedBoard()) {
+          this._flashes.set([]);
+          this.stopTimer();
+          this.triggerWinRipple(r, c);
+        } else {
+          this.triggerUnitFlash(r, c);
+        }
+      } else {
+        // WRONG: penalty, floater, and push undo of the wrong placement
+        const pen = Math.round((this.basePointsNow() * this.multiplier(this._currentDifficulty())) / 2);
+        const delta = -pen;
+        this.showFloater(r, c, `${delta}`);
+        setTimeout(() => this.applyScoreDelta(delta), 600);
+
+        const after = this.snapshotCell(r, c);
+        if (before) this.pushUndo({ r, c, before, after, scoreDelta: delta });
+      }
+    } else {
+      // Changing a non-empty cell (still not a correct placement): treat as an undoable edit without score delta
+      const after = this.snapshotCell(r, c);
+      if (before) this.pushUndo({ r, c, before, after, scoreDelta: 0 });
     }
   }
 
@@ -113,10 +198,16 @@ export class SudokuStore {
     this._board.set(next);
     this._selected.set({ r: 0, c: 0 });
     this._editingGivenMode.set(false);
+    this._currentDifficulty.set('easy');   // default for custom imports
+    this._scoreRaw.set(0);
+    this._scoreShown.set(0);
+    this._scored.clear();
+    this._undo = [];
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
     this._rating.set(null);
     this.rateCurrentBoard();
+    this.startTimer(5000);
   }
 
   recomputeCandidates() {
@@ -137,7 +228,7 @@ export class SudokuStore {
 
   /** Toggle a pencil digit in selected cell */
   togglePencilDigit(r: number, c: number, d: number) {
-    this.pushHistory();
+    const before = this.snapshotCell(r, c);
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
       candidates: new Set(cell.candidates),
@@ -159,6 +250,8 @@ export class SudokuStore {
     }
 
     this._board.set(computeCandidates(next));
+    const after = this.snapshotCell(r, c);
+    this.pushUndo({ r, c, before, after, scoreDelta: 0 });
   }
 
   togglePencilDigitIfEnabled(r: number, c: number, d: number, enabled: boolean) {
@@ -168,7 +261,7 @@ export class SudokuStore {
 
   /** Clear all pencils for a cell (why: quick cleanup) */
   clearPencils(r: number, c: number) {
-    this.pushHistory();
+    const before = this.snapshotCell(r, c);
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
       candidates: new Set(cell.candidates),
@@ -178,6 +271,8 @@ export class SudokuStore {
     next[r][c].suppressed.clear();
     next[r][c].manualCands.clear();
     this._board.set(computeCandidates(next));
+    const after = this.snapshotCell(r, c);
+    this.pushUndo({ r, c, before, after, scoreDelta: 0 });
   }
 
   // --- Hint highlight control ---
@@ -216,8 +311,14 @@ export class SudokuStore {
     }
     this._board.set(next);
     this._editingGivenMode.set(false);
+    this._currentDifficulty.set('easy');
+    this._scoreRaw.set(0);
+    this._scoreShown.set(0);
+    this._scored.clear();
+    this._undo = [];
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
+    this.startTimer(5000);
   }
 
   isErrorCell(r: number, c: number): boolean {
@@ -244,6 +345,11 @@ export class SudokuStore {
       this._board.set(board);
       this._selected.set({ r: 0, c: 0 });
       this._editingGivenMode.set(false);
+      this._currentDifficulty.set(difficulty);
+      this._scoreRaw.set(0);
+      this._scoreShown.set(0);
+      this._scored.clear();
+      this._undo = [];
       this._hl.set(null);
       this._solution.set(null);
       this.recomputeCandidates();
@@ -257,6 +363,8 @@ export class SudokuStore {
       this._busy.set(false);
     }
     this.triggerReveal();
+    this.resetTimer(); // ensure clean
+    this.startTimer(5000);
   }
 
   /** Pre-generate a few puzzles per difficulty to make "New" feel instant */
@@ -298,31 +406,45 @@ export class SudokuStore {
   }
 
   undo() {
-    const prev = this._history.pop();
-    if (!prev) return;
-    this._board.set(this.cloneBoard(prev));
-    this.recomputeCandidates();
+    const last = this._undo.pop();
+    if (!last) return;
+    this.restoreCell(last.before, last.r, last.c);
+    if (last.scoreDelta) this.applyScoreDelta(-last.scoreDelta); // reverse score effect
   }
 
   eraseAt(r: number, c: number) {
+    const before = this.snapshotCell(r, c); // why: capture for undo
+
     const cell = this._board()[r][c];
-    // if a user-entered value exists → clear value; otherwise clear pencils
     if (cell.value && (!cell.given || this._editingGivenMode())) {
-      this.pushHistory();
+      // clear the value
       this._board.update(b => clearValue(b, r, c));
       this.recomputeCandidates();
     } else {
-      this.pushHistory();
-      // clear pencils only
-      const next = this.cloneBoard(this._board());
-      const cur = next[r][c];
-      next[r][c] = {
-        ...cur,
-        suppressed: new Set<number>(),
-        manualCands: new Set<number>()
-      };
+      // clear pencils only (need a mutable copy of Sets)
+      const next = this._board().map(row => row.map(cell => ({
+        ...cell,
+        candidates: new Set(cell.candidates),
+        suppressed: new Set(cell.suppressed),
+        manualCands: new Set(cell.manualCands)
+      })));
+      next[r][c].suppressed.clear();
+      next[r][c].manualCands.clear();
       this._board.set(computeCandidates(next));
     }
+
+    const after = this.snapshotCell(r, c);
+
+    // avoid pushing no-op undos
+    const sameSet = (a: Set<number>, b: Set<number>) =>
+      a.size === b.size && [...a].every(x => b.has(x));
+    const changed =
+      before.value !== after.value ||
+      before.given !== after.given ||
+      !sameSet(before.suppressed, after.suppressed) ||
+      !sameSet(before.manualCands, after.manualCands);
+
+    if (changed) this.pushUndo({ r, c, before, after, scoreDelta: 0 });
   }
 
   private puzzleHash(b: Board): string {
@@ -499,5 +621,109 @@ export class SudokuStore {
     const snap = this.cloneBoard(this._board());
     this._history.push(snap);
     if (this._history.length > 100) this._history.shift();
+  }
+
+  // ----- timer & scoring helpers -----
+  private startTimer(delayMs = 0) {
+    this.stopTimer();
+    if (delayMs > 0) {
+      const t = setTimeout(() => { this._timerId = this.setIntervalTick(); clearTimeout(t); }, delayMs);
+    } else {
+      this._timerId = this.setIntervalTick();
+    }
+  }
+
+  private setIntervalTick() {
+    return setInterval(() => this._timerSec.update(s => s + 1), 1000);
+  }
+
+  private stopTimer() {
+    if (this._timerId != null) { clearInterval(this._timerId); this._timerId = null; }
+  }
+
+  private resetTimer() {
+    this.stopTimer(); this._timerSec.set(0);
+  }
+
+  private multiplier(d: Difficulty): number {
+    if (d === 'medium') return 1.2;
+    if (d === 'hard') return 1.5;
+    if (d === 'expert') return 2.0;
+    return 1.0; // easy
+  }
+
+  private basePointsNow(): number {
+    // 100 - 1pt per 2s, floored at 25
+    return Math.max(25, 100 - Math.floor(this._timerSec() / 2));
+  }
+  private animateScoreTo(target: number) {
+    const start = this._scoreShown();
+    const diff = target - start;
+    if (!diff) return;
+
+    this._scoreBumping.set(true);
+    const dur = 500;
+    const t0 = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);      // ease-out-cubic
+      this._scoreShown.set(Math.round(start + diff * eased));
+      if (p < 1) requestAnimationFrame(tick);
+      else setTimeout(() => this._scoreBumping.set(false), 120);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  private applyScoreDelta(delta: number) {
+    const next = Math.max(0, this._scoreRaw() + delta);
+    this._scoreRaw.set(next);
+    this.animateScoreTo(next);
+  }
+
+  // ---- floaters (+95 / -50) ----
+  private showFloater(r: number, c: number, text: string, ms = 650) {
+    const id = ++this._floaterId;
+    this._floaters.update(a => [...a, { id, r, c, text }]);
+    setTimeout(() => this._floaters.update(a => a.filter(f => f.id !== id)), ms);
+  }
+
+  // ---- timer helpers ----
+  pauseTimer() {
+    this.stopTimer();
+  }
+
+  resumeTimer() {
+    if (this._timerId == null && !this.isSolvedBoard() && !this._editingGivenMode()) this.startTimer();
+  }
+
+  // ---- tiny undo ----
+  private snapshotCell(r: number, c: number) {
+    const cell = this._board()[r][c];
+    return {
+      value: cell.value as Digit,
+      given: cell.given,
+      suppressed: new Set(cell.suppressed),
+      manualCands: new Set(cell.manualCands)
+    };
+  }
+
+  private restoreCell(s: UndoEntry['before'], r: number, c: number) {
+    const next = this._board().map(row => row.map(cell => ({
+      ...cell,
+      candidates: new Set(cell.candidates),
+      suppressed: new Set(cell.suppressed),
+      manualCands: new Set(cell.manualCands)
+    })));
+    next[r][c].value = s.value;
+    next[r][c].given = s.given;
+    next[r][c].suppressed = new Set(s.suppressed);
+    next[r][c].manualCands = new Set(s.manualCands);
+    this._board.set(computeCandidates(next));
+  }
+
+  private pushUndo(u: UndoEntry) {
+    // keep only after last correct entry (we clear history on correct), and cap to 3
+    this._undo.push(u);
+    while (this._undo.length > this._undoLimit) this._undo.shift();
   }
 }
