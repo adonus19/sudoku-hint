@@ -47,6 +47,21 @@
       [style.--ox]="store.win() ? ( (store.win()!.c + 0.5) / 9 * 100 ) + '%' : null"
       [style.--oy]="store.win() ? ( (store.win()!.r + 0.5) / 9 * 100 ) + '%' : null"
     >
+
+      <div
+        class="points-layer"
+        aria-hidden="true"
+      >
+        @for (f of store.floaters(); track f.id) {
+        <span
+          class="points-f"
+          [class.neg]="Number(f.text) < 0"
+          [style.--row]="f.r"
+          [style.--col]="f.c"
+        >{{ Number(f.text) > 0 ? '+' : ''}}{{ Number(f.text) }}</span>
+        }
+      </div>
+
       @if (store.win()) {
       <div class="win-badge">Solved!</div>
       <div class="confetti">
@@ -75,11 +90,6 @@
           [class.unit-flash]="hasFlashAt(r,c)"
           [style.--delay]="flashDelay(r,c)"
         >
-
-          <!-- points floater -->
-          @for (f of floatersAt(r,c); track f.id) {
-          <div class="points-floater">{{ f.text }}</div>
-          }
 
           @if (hasValue(r,c)) {
           <span class="val">{{ cellValue(r,c) }}</span>

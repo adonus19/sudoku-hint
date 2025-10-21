@@ -65,15 +65,6 @@
    line-height: 1;
  }
 
- //  .col-label,
- //  .row-label {
- //    text-align: center;
- //    font-size: var(--label);
- //    color: rgba(0, 0, 0, .7);
- //    line-height: 1;
- //  }
-
-
  .corner {
    width: calc(var(--label) + var(--gap));
  }
@@ -99,7 +90,9 @@
 
  .board {
    position: relative;
-   overflow: hidden;
+   /* was: overflow: hidden; */
+   overflow: visible;
+   /* why: prevent clipping for point floaters near edges */
    width: min(calc(9 * var(--cell)), 100%);
    margin-inline: auto;
  }
@@ -278,9 +271,9 @@
  /* Unit completion flash: wave from the last entered cell */
  .cell.unit-flash {
    position: relative;
-   overflow: hidden;
+   overflow: visible;
+   /* why: don't clip the points floater leaving the cell */
    z-index: 1;
-   /* ensure overlay above selection bg */
  }
 
  .cell.unit-flash::after {
@@ -378,43 +371,48 @@
    opacity: 0 !important;
  }
 
- /* Points popup inside a cell (+95 / -50) */
- .points-floater {
+ .points-layer {
    position: absolute;
-   top: 0;
-   left: 50%;
-   transform: translate(-50%, -10px);
-   font-size: calc(var(--cell) * 0.4);
-   font-weight: 700;
-   color: rgba(25, 118, 210, .95);
-   /* theme-ish blue; tweak if you like */
-   opacity: 0;
+   inset: 0;
    pointer-events: none;
-   animation: floaterUp 650ms ease-out forwards;
+   z-index: 4000;
+   /* above cells/selection/flash */
  }
 
- .points-floater::first-letter {
-   /* if minus, keep readable */
+ /* Points popup inside a cell (+95 / -50) */
+ .points-f {
+   position: absolute;
+   top: calc(var(--row) * var(--cell) + 2px);
+   /* just inside cell top */
+   left: calc((var(--col) + 0.5) * var(--cell));
+   transform: translate(-50%, 0) scale(.94);
+   font-size: calc(var(--cell) * 0.40);
+   font-weight: 700;
+   color: rgba(25, 118, 210, .96);
+   /* theme-ish blue for positive */
+   text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+   opacity: 0;
+   animation: floatUpBoard 700ms ease-out forwards;
+ }
+
+ .points-f.neg {
    color: rgba(211, 47, 47, 1);
  }
 
- @keyframes floaterUp {
+ @keyframes floatUpBoard {
    0% {
      opacity: 0;
-     transform: translate(-50%, -5px) scale(.98);
-     z-index: 9999999;
+     transform: translate(-50%, 10px) scale(.94);
    }
 
-   15% {
+   18% {
      opacity: 1;
-     transform: translate(-50%, -10px) scale(1.2);
-     z-index: 9999999;
+     transform: translate(-50%, 0px) scale(1.10);
    }
 
    100% {
      opacity: 0;
-     transform: translate(-50%, -20px) scale(1.4);
-     z-index: 9999999;
+     transform: translate(-50%, -28px) scale(1.22);
    }
  }
 
