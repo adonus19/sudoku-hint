@@ -77,3 +77,104 @@
   font-size: 22px;
   font-weight: 700;
 }
+
+.dash-card.stats {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
+  margin-top: 16px;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .totals {
+    display: flex;
+    gap: 12px;
+    color: rgba(0, 0, 0, .65);
+    font-size: 14px;
+  }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.scol {
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.scol .h {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.scol .r {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.scol .r span:last-child {
+  font-weight: 600;
+}
+
+.techs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.tcol {
+  background: #f7f7f7;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.th {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  background: #e8f0fe;
+  color: #1a73e8;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.dim {
+  color: rgba(0, 0, 0, .45);
+}
+
+@media (max-width: 799px) {
+
+  .stats-grid,
+  .techs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -3,7 +3,9 @@
 }
 
 .solved-outer {
-  position: relative;
+  position: fixed;
+  /* lock to viewport */
+  inset: 0;
   min-height: 100dvh;
   display: grid;
   place-items: center;
@@ -17,7 +19,7 @@
 /* floating soft blobs */
 .bg {
   position: absolute;
-  inset: 0;
+  inset: -40px;
   overflow: hidden;
   pointer-events: none;
 }

@@ -38,18 +38,89 @@
   </mat-card>
 
   <!-- Future: stats cards (placeholders) -->
-  <div class="stats">
-    <mat-card class="stat">
-      <div class="k">Fastest Time (Easy)</div>
-      <div class="v">—</div>
-    </mat-card>
-    <mat-card class="stat">
-      <div class="k">Puzzles Solved</div>
-      <div class="v">—</div>
-    </mat-card>
-    <mat-card class="stat">
-      <div class="k">Total Hints Used</div>
-      <div class="v">—</div>
-    </mat-card>
+  <div class="dash-card stats">
+    <div class="stats-header">
+      <h3>Session Stats</h3>
+      <div class="totals">
+        <span><strong>{{ total().solved }}</strong> solved</span>
+        <span><strong>{{ total().totalScore | number }}</strong> pts</span>
+        <span><strong>{{ total().totalHints }}</strong> hints</span>
+        <span><strong>{{ total().totalMistakes }}</strong> mistakes</span>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="scol">
+        <div class="h">Easy</div>
+        <div class="r"><span>Best Time</span><span>{{ mmss(byDiff().easy.bestTimeMs) }}</span></div>
+        <div class="r"><span>Best Score</span><span>{{ byDiff().easy.bestScore ?? '—' }}</span></div>
+        <div class="r"><span>Solved</span><span>{{ byDiff().easy.solved }}</span></div>
+        <div class="r"><span>Total Points</span><span>{{ byDiff().easy.totalScore | number }}</span></div>
+        <div class="r"><span>Hints</span><span>{{ byDiff().easy.totalHints }}</span></div>
+        <div class="r"><span>Mistakes</span><span>{{ byDiff().easy.totalMistakes }}</span></div>
+      </div>
+
+      <div class="scol">
+        <div class="h">Medium</div>
+        <div class="r"><span>Best Time</span><span>{{ mmss(byDiff().medium.bestTimeMs) }}</span></div>
+        <div class="r"><span>Best Score</span><span>{{ byDiff().medium.bestScore ?? '—' }}</span></div>
+        <div class="r"><span>Solved</span><span>{{ byDiff().medium.solved }}</span></div>
+        <div class="r"><span>Total Points</span><span>{{ byDiff().medium.totalScore | number }}</span></div>
+        <div class="r"><span>Hints</span><span>{{ byDiff().medium.totalHints }}</span></div>
+        <div class="r"><span>Mistakes</span><span>{{ byDiff().medium.totalMistakes }}</span></div>
+      </div>
+
+      <div class="scol">
+        <div class="h">Hard</div>
+        <div class="r"><span>Best Time</span><span>{{ mmss(byDiff().hard.bestTimeMs) }}</span></div>
+        <div class="r"><span>Best Score</span><span>{{ byDiff().hard.bestScore ?? '—' }}</span></div>
+        <div class="r"><span>Solved</span><span>{{ byDiff().hard.solved }}</span></div>
+        <div class="r"><span>Total Points</span><span>{{ byDiff().hard.totalScore | number }}</span></div>
+        <div class="r"><span>Hints</span><span>{{ byDiff().hard.totalHints }}</span></div>
+        <div class="r"><span>Mistakes</span><span>{{ byDiff().hard.totalMistakes }}</span></div>
+      </div>
+
+      <div class="scol">
+        <div class="h">Expert</div>
+        <div class="r"><span>Best Time</span><span>{{ mmss(byDiff().expert.bestTimeMs) }}</span></div>
+        <div class="r"><span>Best Score</span><span>{{ byDiff().expert.bestScore ?? '—' }}</span></div>
+        <div class="r"><span>Solved</span><span>{{ byDiff().expert.solved }}</span></div>
+        <div class="r"><span>Total Points</span><span>{{ byDiff().expert.totalScore | number }}</span></div>
+        <div class="r"><span>Hints</span><span>{{ byDiff().expert.totalHints }}</span></div>
+        <div class="r"><span>Mistakes</span><span>{{ byDiff().expert.totalMistakes }}</span></div>
+      </div>
+    </div>
+
+    <!-- Optional: show techniques per difficulty (collapsed style) -->
+    <div class="techs">
+      <div class="tcol">
+        <div class="th">Techniques (Easy)</div>
+        <div class="chips">
+          @for (t of byDiff().easy.techniques; track $index) { <span class="chip">{{ t }}</span> }
+          @if (!byDiff().easy.techniques.length) { <span class="dim">—</span> }
+        </div>
+      </div>
+      <div class="tcol">
+        <div class="th">Techniques (Medium)</div>
+        <div class="chips">
+          @for (t of byDiff().medium.techniques; track $index) { <span class="chip">{{ t }}</span> }
+          @if (!byDiff().medium.techniques.length) { <span class="dim">—</span> }
+        </div>
+      </div>
+      <div class="tcol">
+        <div class="th">Techniques (Hard)</div>
+        <div class="chips">
+          @for (t of byDiff().hard.techniques; track $index) { <span class="chip">{{ t }}</span> }
+          @if (!byDiff().hard.techniques.length) { <span class="dim">—</span> }
+        </div>
+      </div>
+      <div class="tcol">
+        <div class="th">Techniques (Expert)</div>
+        <div class="chips">
+          @for (t of byDiff().expert.techniques; track $index) { <span class="chip">{{ t }}</span> }
+          @if (!byDiff().expert.techniques.length) { <span class="dim">—</span> }
+        </div>
+      </div>
+    </div>
   </div>
 </div>

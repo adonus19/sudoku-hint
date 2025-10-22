@@ -3,7 +3,7 @@ import { Board, Digit, Coord, Cell } from './sudoku.types';
 import { createEmptyBoard, setValue, clearValue, detectConflicts, parseBoardString, computeCandidates } from './sudoku.utils';
 import { HintHighlight, HintResult } from '../hint/hint.types';
 import { solveSudoku } from './sudoku.solver';
-import { generatePuzzle } from './sudoku.generator';
+import type { Bucket } from './sudoku.rater';
 import type { Difficulty } from '../components/new-puzzle-dialog/new-puzzle-dialog';
 import { DifficultyRating, ratePuzzle } from './sudoku.rater';
 
@@ -12,6 +12,26 @@ type UndoEntry = {
   before: { value: Digit; given: boolean; suppressed: Set<number>; manualCands: Set<number> };
   after: { value: Digit; given: boolean; suppressed: Set<number>; manualCands: Set<number> };
   scoreDelta: number; // what we applied when doing the action (e.g. -50 for a wrong entry)
+};
+
+function emptyStats(): Record<Bucket, DiffStats> {
+  return {
+    easy: { solved: 0, bestTimeMs: null, bestScore: null, totalScore: 0, totalHints: 0, totalMistakes: 0, totalMistakePoints: 0, techniques: new Set() },
+    medium: { solved: 0, bestTimeMs: null, bestScore: null, totalScore: 0, totalHints: 0, totalMistakes: 0, totalMistakePoints: 0, techniques: new Set() },
+    hard: { solved: 0, bestTimeMs: null, bestScore: null, totalScore: 0, totalHints: 0, totalMistakes: 0, totalMistakePoints: 0, techniques: new Set() },
+    expert: { solved: 0, bestTimeMs: null, bestScore: null, totalScore: 0, totalHints: 0, totalMistakes: 0, totalMistakePoints: 0, techniques: new Set() },
+  };
+}
+
+type DiffStats = {
+  solved: number;
+  bestTimeMs: number | null;
+  bestScore: number | null;
+  totalScore: number;
+  totalHints: number;
+  totalMistakes: number;
+  totalMistakePoints: number;
+  techniques: Set<string>;
 };
 
 @Injectable({
@@ -35,6 +55,9 @@ export class SudokuStore {
   private _worker: Worker | null = null;
   private _hintsUsed = signal<number>(0);
   private _hintTechniques = signal<Set<string>>(new Set<string>());
+  private _mistakes = signal<number>(0);
+  private _mistakePoints = signal<number>(0);
+  private _stats = signal<Record<Bucket, DiffStats>>(emptyStats());
 
   // difficulty context (for multiplier)
   private _currentDifficulty = signal<Difficulty>('easy');
@@ -104,6 +127,42 @@ export class SudokuStore {
   floaters = this._floaters.asReadonly();
   lastSolved = this._lastSolved.asReadonly();
 
+  statsByDifficulty = computed(() => {
+    const s = this._stats();
+    const toPlain = (d: DiffStats) => ({
+      ...d,
+      techniques: Array.from(d.techniques).sort()
+    });
+    return {
+      easy: toPlain(s.easy),
+      medium: toPlain(s.medium),
+      hard: toPlain(s.hard),
+      expert: toPlain(s.expert),
+    };
+  });
+
+  lifetimeStats = computed(() => {
+    const s = this._stats();
+    const sum = <K extends keyof DiffStats>(k: K) =>
+      (s.easy[k] as any ?? 0) + (s.medium[k] as any ?? 0) + (s.hard[k] as any ?? 0) + (s.expert[k] as any ?? 0);
+
+    return {
+      solved: sum('solved'),
+      totalScore: sum('totalScore'),
+      totalHints: sum('totalHints'),
+      totalMistakes: sum('totalMistakes'),
+      totalMistakePoints: sum('totalMistakePoints'),
+    };
+  });
+
+  mmss = (ms: number | null) => {
+    if (ms == null) return '—';
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   resetBoard() {
     this._board.set(createEmptyBoard());
     this._selected.set(null);
@@ -118,6 +177,9 @@ export class SudokuStore {
     this._undo = [];
     this._win.set(null);
     this._flashes.set([]);
+    this._mistakes.set(0);
+    this._mistakePoints.set(0);
+    this._stats.set(this._stats());
   }
 
   toggleFullScreenBoard() {
@@ -187,6 +249,8 @@ export class SudokuStore {
         // WRONG: penalty, floater, and push undo of the wrong placement
         const pen = Math.round((this.basePointsNow() * this.multiplier(this._currentDifficulty())) / 2);
         const delta = -pen;
+        this._mistakes.update(n => n + 1);
+        this._mistakePoints.update(p => p + pen);
         this.showFloater(r, c, `${delta}`);
         setTimeout(() => this.applyScoreDelta(delta), 600);
 
@@ -218,6 +282,8 @@ export class SudokuStore {
     this._scoreShown.set(0);
     this._scored.clear();
     this._undo = [];
+    this._mistakes.set(0);
+    this._mistakePoints.set(0);
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
     this._rating.set(null);
@@ -333,6 +399,8 @@ export class SudokuStore {
     this._scoreShown.set(0);
     this._scored.clear();
     this._undo = [];
+    this._mistakes.set(0);
+    this._mistakePoints.set(0);
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
     this.startTimer(5000);
@@ -372,6 +440,8 @@ export class SudokuStore {
       this._hintsUsed.set(0);
       this._hintTechniques.set(new Set());
       this._lastSolved.set(null);
+      this._mistakes.set(0);
+      this._mistakePoints.set(0);
       this.recomputeCandidates();
       this.computeSolutionFromGivens?.();
 
@@ -807,17 +877,18 @@ export class SudokuStore {
   }
 
   private captureSolvedStats() {
-    const bucket = this._rating()?.bucket ?? 'easy';
-    const timeMs = (this as any)._elapsedMs?.() ?? (this as any)._timerMs?.() ?? 0;
-    const score = (this as any)._score?.() ?? 0;
-    const mistakes = (this as any)._mistakes?.() ?? 0;
-    const mistakePts = (this as any)._mistakePoints?.() ?? 0;
+    const bucket: Bucket = this._rating()?.bucket ?? 'easy';
+    const timeMs = this._timerSec() * 1000;
+    const score = this._scoreRaw();
+    const mistakes = this._mistakes();
+    const mistakePts = this._mistakePoints();
     const hints = this._hintsUsed();
     const techs = Array.from(this._hintTechniques());
-    const newBest = false; // TODO: compare & persist later
+    const newBest = false; // TODO: persist & compare later
 
+    // per-puzzle record for the Solved screen
     this._lastSolved.set({
-      difficulty: bucket as any,
+      difficulty: bucket,
       timeMs,
       score,
       mistakes,
@@ -825,6 +896,23 @@ export class SudokuStore {
       hintsUsed: hints,
       hintTechniques: techs,
       newBest
+    });
+
+    // session-aggregate stats (by difficulty)
+    this._stats.update(all => {
+      const cur = all[bucket];
+      const next: DiffStats = {
+        solved: cur.solved + 1,
+        bestTimeMs: cur.bestTimeMs == null ? timeMs : Math.min(cur.bestTimeMs, timeMs),
+        bestScore: cur.bestScore == null ? score : Math.max(cur.bestScore, score),
+        totalScore: cur.totalScore + score,
+        totalHints: cur.totalHints + hints,
+        totalMistakes: cur.totalMistakes + mistakes,
+        totalMistakePoints: cur.totalMistakePoints + mistakePts,
+        techniques: new Set(cur.techniques),
+      };
+      for (const t of techs) next.techniques.add(t);
+      return { ...all, [bucket]: next };
     });
   }
 }

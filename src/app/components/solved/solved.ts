@@ -2,6 +2,9 @@ import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SudokuStore } from '../../data/sudoku.store'
+import { MatDialog } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
+import { NewPuzzleDialog } from '../new-puzzle-dialog/new-puzzle-dialog'; // adjust path if needed
 
 @Component({
   selector: 'app-solved',
@@ -12,6 +15,7 @@ import { SudokuStore } from '../../data/sudoku.store'
 export class Solved {
   private store = inject(SudokuStore);
   private router = inject(Router);
+  private dialog = inject(MatDialog);
 
   stats = computed(() => this.store.lastSolved() ?? {
     difficulty: 'easy',
@@ -35,11 +39,22 @@ export class Solved {
     this.router.navigate(['/dashboard']);
   }
 
-  newPuzzle() {
-    this.router.navigate(['/play']); /* open your new-puzzle flow if you like */
+  async newPuzzle() {
+    const ref = this.dialog.open(NewPuzzleDialog, { width: '360px', autoFocus: false });
+    const result = await firstValueFrom(ref.afterClosed());
+    if (!result) return;                           // user cancelled
+    await this.store.newPuzzle(result.difficulty, result.symmetry);
+    this.router.navigate(['/play']);               // go straight into play
   }
 
   importBoard() {
-    this.router.navigate(['/dashboard']); /* or a dedicated import route */
+    // if you have a dedicated route, use that; otherwise open Dashboard import pane
+    this.router.navigate(['/dashboard'], { queryParams: { open: 'import' } });
+  }
+
+  manualEntry() {
+    this.store.resetBoard();
+    this.store.enterGivenMode();          // stay in Given mode for typing
+    this.router.navigate(['/play']);      // open the board in entry mode
   }
 }
