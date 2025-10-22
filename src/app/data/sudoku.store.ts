@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, signal, effect } from '@angular/core';
 import { Board, Digit, Coord, Cell } from './sudoku.types';
 import { createEmptyBoard, setValue, clearValue, detectConflicts, parseBoardString, computeCandidates } from './sudoku.utils';
 import { HintHighlight, HintResult } from '../hint/hint.types';
@@ -32,6 +32,30 @@ type DiffStats = {
   totalMistakes: number;
   totalMistakePoints: number;
   techniques: Set<string>;
+};
+
+type ActiveKey =
+  | { kind: 'generated'; difficulty: Bucket }
+  | { kind: 'custom'; origin?: 'manual' | 'csv' | 'photo' };
+
+type GameSnapshot = {
+  key: ActiveKey;
+  board: any;                      // serialized board (see helpers below)
+  selected: Coord | null;
+  editingGiven: boolean;
+  pencilMode: boolean;
+  timerSec: number;
+  score: number;
+  difficulty: Bucket;              // for scoring multiplier + HUD
+  solution: number[][] | null;
+  rating: DifficultyRating | null; // keep label stable after resume
+  savedAt: number;
+};
+
+type ActiveStore = {
+  active: ActiveKey | null;        // last active game key (optional, not auto-resuming)
+  generated: Partial<Record<Bucket, GameSnapshot | null>>;
+  custom: GameSnapshot | null;
 };
 
 @Injectable({
@@ -98,6 +122,14 @@ export class SudokuStore {
     newBest: boolean;
   } | null>(null);
 
+  private readonly ACTIVE_KEY = 'sdk_active_games_v1';
+  private _activeKey = signal<ActiveKey | null>(null);
+  private _saveDebounce: any = null;
+  private _activeStore: ActiveStore = { active: null, generated: {}, custom: null };
+
+  private readonly STATS_KEY = 'sdk_stats_v1';
+
+
 
   board = this._board.asReadonly();
   selected = this._selected.asReadonly();
@@ -154,6 +186,52 @@ export class SudokuStore {
       totalMistakePoints: sum('totalMistakePoints'),
     };
   });
+
+  constructor() {
+    // hydrate from localStorage (if present)
+    this._activeStore = this.loadActiveStore();
+
+    effect(() => {
+      const key = this._activeKey();
+      // track dependencies
+      const _b = this._board();
+      const _sel = this._selected();
+      const _eg = this._editingGivenMode();
+      const _pm = this._pencilMode();
+      const _t = this._timerSec();
+      const _sc = this._scoreRaw();
+      const _sol = this._solution();
+      const _rate = this._rating();
+      const _diff = this._currentDifficulty();
+
+      if (!key) return;
+      // debounce writes so we don’t hammer localStorage every second
+      clearTimeout(this._saveDebounce);
+      this._saveDebounce = setTimeout(() => this.persistActive(key), 250);
+    });
+
+    try {
+      const raw = localStorage.getItem(this.STATS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const s = this.deserializeStats(parsed);
+        if (s) this._stats.set(s);
+      }
+    } catch { /* ignore */ }
+
+    // autosave whenever stats change
+    effect(() => {
+      const snapshot = this._stats(); // track signal
+      try {
+        localStorage.setItem(this.STATS_KEY, JSON.stringify(this.serializeStats(snapshot)));
+      } catch { /* ignore quota/private mode */ }
+    });
+  }
+
+  clearAllStats() {
+    this._stats.set(emptyStats());
+    try { localStorage.removeItem(this.STATS_KEY); } catch { }
+  }
 
   mmss = (ms: number | null) => {
     if (ms == null) return '—';
@@ -431,6 +509,7 @@ export class SudokuStore {
       this._selected.set({ r: 0, c: 0 });
       this._editingGivenMode.set(false);
       this._currentDifficulty.set(difficulty);
+      this._activeKey.set({ kind: 'generated', difficulty });
       this._scoreRaw.set(0);
       this._scoreShown.set(0);
       this._scored.clear();
@@ -594,6 +673,74 @@ export class SudokuStore {
     this.startTimer(5000);   // 5s grace (if you added timer helpers)
 
     return true;
+  }
+
+  beginCustomEntry(origin: 'manual' | 'csv' | 'photo' = 'manual') {
+    this._activeKey.set({ kind: 'custom', origin });
+    // ensure we’re in given mode for build-up flows
+    this.enterGivenMode();
+  }
+
+  hasActiveGenerated(d: Bucket): boolean {
+    return !!this._activeStore.generated?.[d];
+  }
+  hasActiveCustom(): boolean {
+    return !!this._activeStore.custom;
+  }
+
+  clearActiveGenerated(d: Bucket) {
+    if (this._activeStore.generated) this._activeStore.generated[d] = null as any;
+    this.saveActiveStore();
+  }
+  clearActiveCustom() {
+    this._activeStore.custom = null;
+    this.saveActiveStore();
+  }
+  clearCurrentActive() {
+    const key = this._activeKey();
+    if (!key) return;
+    if (key.kind === 'generated') this.clearActiveGenerated(key.difficulty);
+    else this.clearActiveCustom();
+    this._activeKey.set(null);
+  }
+
+  getResumables(): Array<{ key: ActiveKey; progress: number; savedAt: number; rating?: DifficultyRating | null }> {
+    const list: Array<{ key: ActiveKey; progress: number; savedAt: number; rating?: DifficultyRating | null }> = [];
+    for (const d of ['easy', 'medium', 'hard', 'expert'] as Bucket[]) {
+      const s = this._activeStore.generated?.[d];
+      if (s) {
+        list.push({ key: { kind: 'generated', difficulty: d }, progress: this.progressOf(s.board), savedAt: s.savedAt, rating: s.rating });
+      }
+    }
+    if (this._activeStore.custom) {
+      const s = this._activeStore.custom;
+      list.push({ key: { kind: 'custom', origin: s.key?.origin }, progress: this.progressOf(s.board), savedAt: s.savedAt, rating: s.rating });
+    }
+    // newest first if you like:
+    return list.sort((a, b) => b.savedAt - a.savedAt);
+  }
+
+  // — resume —
+  async resumeGenerated(d: Bucket) {
+    const snap = this._activeStore.generated?.[d];
+    if (!snap) return false;
+    await this.loadSnapshot(snap);
+    this._activeKey.set({ kind: 'generated', difficulty: d });
+    return true;
+  }
+
+  async resumeCustom() {
+    const snap = this._activeStore.custom;
+    if (!snap) return false;
+    await this.loadSnapshot(snap);
+    this._activeKey.set({ kind: 'custom', origin: snap.key.origin });
+    return true;
+  }
+
+  private progressOf(serialized: any): number {
+    let filled = 0;
+    for (const row of serialized) for (const c of row) if (c.value) filled++;
+    return filled / 81;
   }
 
   private puzzleHash(b: Board): string {
@@ -795,9 +942,9 @@ export class SudokuStore {
   }
 
   private multiplier(d: Difficulty): number {
-    if (d === 'medium') return 1.2;
-    if (d === 'hard') return 1.5;
-    if (d === 'expert') return 2.0;
+    if (d === 'medium') return 1.5;
+    if (d === 'hard') return 2.0;
+    if (d === 'expert') return 3.0;
     return 1.0; // easy
   }
 
@@ -805,6 +952,7 @@ export class SudokuStore {
     // 100 - 1pt per 2s, floored at 25
     return Math.max(25, 100 - Math.floor(this._timerSec() / 2));
   }
+
   private animateScoreTo(target: number) {
     const start = this._scoreShown();
     const diff = target - start;
@@ -884,7 +1032,10 @@ export class SudokuStore {
     const mistakePts = this._mistakePoints();
     const hints = this._hintsUsed();
     const techs = Array.from(this._hintTechniques());
-    const newBest = false; // TODO: persist & compare later
+    const prev = this._stats()[bucket];
+    const newBest =
+      (prev.bestTimeMs == null || timeMs < prev.bestTimeMs) ||
+      (prev.bestScore == null || score > prev.bestScore);
 
     // per-puzzle record for the Solved screen
     this._lastSolved.set({
@@ -914,5 +1065,134 @@ export class SudokuStore {
       for (const t of techs) next.techniques.add(t);
       return { ...all, [bucket]: next };
     });
+  }
+
+  private serializeStats(s: Record<Bucket, DiffStats>) {
+    // Convert Sets → arrays for storage
+    return {
+      easy: { ...s.easy, techniques: Array.from(s.easy.techniques) },
+      medium: { ...s.medium, techniques: Array.from(s.medium.techniques) },
+      hard: { ...s.hard, techniques: Array.from(s.hard.techniques) },
+      expert: { ...s.expert, techniques: Array.from(s.expert.techniques) },
+    };
+  }
+
+  private deserializeStats(raw: any): Record<Bucket, DiffStats> | null {
+    try {
+      const r = raw as Record<Bucket, any>;
+      const mk = (x: any): DiffStats => ({
+        solved: Number(x?.solved ?? 0),
+        bestTimeMs: x?.bestTimeMs == null ? null : Number(x.bestTimeMs),
+        bestScore: x?.bestScore == null ? null : Number(x.bestScore),
+        totalScore: Number(x?.totalScore ?? 0),
+        totalHints: Number(x?.totalHints ?? 0),
+        totalMistakes: Number(x?.totalMistakes ?? 0),
+        totalMistakePoints: Number(x?.totalMistakePoints ?? 0),
+        techniques: new Set<string>(Array.isArray(x?.techniques) ? x.techniques : []),
+      });
+      return {
+        easy: mk(r.easy), medium: mk(r.medium), hard: mk(r.hard), expert: mk(r.expert)
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private serializeBoard(b: Board) {
+    return b.map(row => row.map(cell => ({
+      value: cell.value,
+      given: cell.given,
+      box: cell.box,
+      // we REcompute candidates on load; just persist manual/suppressed
+      suppressed: Array.from(cell.suppressed ?? []),
+      manualCands: Array.from(cell.manualCands ?? [])
+    })));
+  }
+
+  private deserializeBoard(raw: any): Board {
+    // reconstruct a minimal Board, then recomputeCandidates() later
+    return raw.map((row: any[], r: number) => row.map((c: any, i: number) => ({
+      value: Number(c.value || 0) as Digit,
+      given: !!c.given,
+      box: c.box ?? (Math.floor(r / 3) * 3 + Math.floor(i / 3)),
+      candidates: new Set<number>(),
+      suppressed: new Set<number>(c.suppressed ?? []),
+      manualCands: new Set<number>(c.manualCands ?? [])
+    })));
+  }
+
+  private loadActiveStore(): ActiveStore {
+    try {
+      const raw = localStorage.getItem(this.ACTIVE_KEY);
+      if (!raw) return { active: null, generated: {}, custom: null };
+      const obj = JSON.parse(raw);
+      // naive validate
+      return {
+        active: obj?.active ?? null,
+        generated: obj?.generated ?? {},
+        custom: obj?.custom ?? null
+      };
+    } catch {
+      return { active: null, generated: {}, custom: null };
+    }
+  }
+
+  private saveActiveStore() {
+    try {
+      localStorage.setItem(this.ACTIVE_KEY, JSON.stringify(this._activeStore));
+    } catch { /* ignore quota/private */ }
+  }
+
+  private persistActive(key: ActiveKey) {
+    const snap: GameSnapshot = {
+      key,
+      board: this.serializeBoard(this._board()),
+      selected: this._selected(),
+      editingGiven: this._editingGivenMode(),
+      pencilMode: this._pencilMode(),
+      timerSec: this._timerSec(),
+      score: this._scoreRaw(),
+      difficulty: this._currentDifficulty(),
+      solution: this._solution(),
+      rating: this._rating(),
+      savedAt: Date.now()
+    };
+
+    // write into in-memory store slots
+    if (key.kind === 'generated') {
+      this._activeStore.generated[key.difficulty] = snap;
+    } else {
+      this._activeStore.custom = snap;
+    }
+    this._activeStore.active = key;
+    this.saveActiveStore();
+  }
+
+  private async loadSnapshot(s: GameSnapshot) {
+    // board
+    const b = this.deserializeBoard(s.board);
+    this._board.set(b);
+    this.recomputeCandidates();       // rebuild candidates
+    this._selected.set(s.selected);
+    this._editingGivenMode.set(s.editingGiven);
+    this._pencilMode.set(s.pencilMode);
+    this._currentDifficulty.set(s.difficulty);
+    this._rating.set(s.rating ?? null);
+    this._solution.set(s.solution ?? null);
+
+    // reset reveal/animations
+    this._reveal.set(false);
+    this._flashes.set([]);
+    this._win.set(null);
+
+    // score/timer
+    this._scoreRaw.set(s.score);
+    this._scoreShown.set(s.score);
+    this._scored.clear();           // avoid re-rewarding old cells
+    this.resetTimer();
+    this._timerSec.set(s.timerSec);
+    if (!this.isSolvedBoard() && !this._editingGivenMode()) {
+      this.startTimer();             // resume immediately
+    }
   }
 }
