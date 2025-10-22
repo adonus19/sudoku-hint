@@ -68,47 +68,50 @@
         @for (i of confetti; track $index) { <i [style.--i]="$index"></i> }
       </div>
       }
-      @for (r of rows; track $index) {
-      <div
-        class="row"
-        role="row"
-      >
-        @for (c of cols; track $index) {
-        <button
-          class="cell"
-          role="gridcell"
-          [ngClass]="cellClasses(r,c)"
-          [class.readonly]="isGiven(r,c) && !store.editingGivenMode()"
-          (click)="onCellClick(r,c)"
-          (mouseenter)="onHover(r,c,true)"
-          (mouseleave)="onHover(r,c,false)"
-          [attr.aria-selected]="isSelected(r,c)"
-          [attr.aria-label]="ariaLabel(r,c)"
-          [attr.aria-disabled]="isGiven(r,c) && !store.editingGivenMode() ? 'true' : null"
-          [style.--r]="r"
-          [style.--c]="c"
-          [class.unit-flash]="hasFlashAt(r,c)"
-          [style.--delay]="flashDelay(r,c)"
-        >
 
-          @if (hasValue(r,c)) {
-          <span class="val">{{ cellValue(r,c) }}</span>
-          } @else {
-          <div class="pencil">
-            @for (d of digits; track $index) {
-            <span
-              class="p"
-              [class.on]="hasCand(r,c,d)"
-              [class.cand-match]="candMatchesActive(r,c,d)"
-              [class.cand-hint]="candInHint(r,c,d)"
-            >{{ d }}</span>
+      <div class="grid">
+        @for (r of rows; track $index) {
+        <div
+          class="row"
+          role="row"
+        >
+          @for (c of cols; track $index) {
+          <button
+            class="cell"
+            role="gridcell"
+            [ngClass]="cellClasses(r,c)"
+            [class.readonly]="isGiven(r,c) && !store.editingGivenMode()"
+            (click)="onCellClick(r,c)"
+            (mouseenter)="onHover(r,c,true)"
+            (mouseleave)="onHover(r,c,false)"
+            [attr.aria-selected]="isSelected(r,c)"
+            [attr.aria-label]="ariaLabel(r,c)"
+            [attr.aria-disabled]="isGiven(r,c) && !store.editingGivenMode() ? 'true' : null"
+            [style.--r]="r"
+            [style.--c]="c"
+            [class.unit-flash]="hasFlashAt(r,c)"
+            [style.--delay]="flashDelay(r,c)"
+          >
+
+            @if (hasValue(r,c)) {
+            <span class="val">{{ cellValue(r,c) }}</span>
+            } @else {
+            <div class="pencil">
+              @for (d of digits; track $index) {
+              <span
+                class="p"
+                [class.on]="hasCand(r,c,d)"
+                [class.cand-match]="candMatchesActive(r,c,d)"
+                [class.cand-hint]="candInHint(r,c,d)"
+              >{{ d }}</span>
+              }
+            </div>
             }
-          </div>
+          </button>
           }
-        </button>
+        </div>
         }
       </div>
-      }
     </div>
   </div>
 </div>

@@ -159,22 +159,22 @@
  }
 
  /* Thick box borders */
- .board .row:nth-child(3n+1) .cell {
+ .board .grid .row:nth-child(3n+1) .cell {
    border-top-width: 2px;
    border-top-color: rgba(0, 0, 0, .5);
  }
 
- .board .row .cell:nth-child(3n+1) {
+ .board .grid .row .cell:nth-child(3n+1) {
    border-left-width: 2px;
    border-left-color: rgba(0, 0, 0, .5);
  }
 
- .board .row:nth-child(9) .cell {
+ .board .grid .row:nth-child(9) .cell {
    border-bottom-width: 2px;
    border-bottom-color: rgba(0, 0, 0, .5);
  }
 
- .board .row .cell:nth-child(9) {
+ .board .grid .row .cell:nth-child(9) {
    border-right-width: 2px;
    border-right-color: rgba(0, 0, 0, .5);
  }

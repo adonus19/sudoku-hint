@@ -14,6 +14,34 @@
     <app-board></app-board>
   </div>
 
+  <!-- Start Solving bar (visible only during given mode) -->
+  @if (store.editingGivenMode()) {
+  <div
+    class="start-bar"
+    role="region"
+    aria-label="Start solving"
+  >
+    <div class="msg">
+      Setup mode — tap Start when you’ve finished entering givens.
+      @if (!store.hasAnyValues()) {
+      <span class="warn">Please enter at least one value to begin.</span>
+      }
+      @if (store.conflicts().cells.size) {
+      <span class="warn">There are conflicts in the givens.</span>
+      }
+    </div>
+    <button
+      mat-flat-button
+      color="primary"
+      class="start-btn"
+      (click)="startSolving()"
+      [disabled]="!store.hasAnyValues() || store.conflicts().cells.size > 0"
+    >
+      Start
+    </button>
+  </div>
+  }
+
   <!-- NEW: tools row under board, above keypad -->
   <div
     class="tools"

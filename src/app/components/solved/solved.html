@@ -1,0 +1,72 @@
+<div class="solved-outer">
+  <!-- animated background -->
+  <div class="bg">
+    <i class="b b1"></i><i class="b b2"></i><i class="b b3"></i>
+    <i class="b b4"></i><i class="b b5"></i><i class="b b6"></i>
+  </div>
+
+  <div class="card">
+    <h1>Puzzle Solved!</h1>
+
+    <div class="badges">
+      @if (stats().newBest) {
+      <span class="badge best">New Best Time!</span>
+      }
+      @if (stats().mistakes === 0) {
+      <span class="badge flawless">Flawless!</span>
+      }
+    </div>
+
+    <div class="summary">
+      <div class="summary-item">
+        <div class="lbl">Time</div>
+        <div class="val">{{ mmss(stats().timeMs) }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="lbl">Score</div>
+        <div class="val">{{ stats().score | number }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="lbl">Difficulty</div>
+        <div class="val">{{ (stats().difficulty || 'easy') | titlecase }}</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="cell">
+        <div class="title">Mistakes</div>
+        <div class="big">{{ stats().mistakes }}</div>
+        <div class="sub">-{{ stats().mistakePoints | number }} pts</div>
+      </div>
+
+      <div class="cell">
+        <div class="title">Hints Used</div>
+        <div class="big">{{ stats().hintsUsed }}</div>
+        <div class="sub">
+          @if (stats().hintTechniques.length) {
+          @for (t of stats().hintTechniques; track $index) {
+          <span class="tech">{{ t }}</span>
+          }
+          } @else {
+          <span class="dim">—</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button
+        class="btn primary"
+        (click)="newPuzzle()"
+      >Play Again</button>
+      <button
+        class="btn"
+        (click)="importBoard()"
+      >Import / Enter</button>
+      <button
+        class="btn"
+        (click)="toDashboard()"
+      >Dashboard</button>
+    </div>
+  </div>
+</div>

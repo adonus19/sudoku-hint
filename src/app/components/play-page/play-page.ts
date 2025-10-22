@@ -1,5 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -21,11 +22,27 @@ import { HintSheet } from '../hint-sheet/hint-sheet';
   styleUrl: './play-page.scss'
 })
 export class PlayPage {
+  private router = inject(Router);
   store = inject(SudokuStore);
   #hints = inject(HintService);
   #dialog = inject(MatDialog);
   #sheet = inject(MatBottomSheet);
   #bp = inject(BreakpointObserver);
+
+  constructor() {
+    // existing effects...
+    effect(() => {
+      const w = this.store.win();
+      if (w) {
+        // let the win ripple/celebration play; then navigate
+        setTimeout(() => this.router.navigate(['/solved']), 1200);
+      }
+    });
+  }
+
+  startSolving() {
+    this.store.tryStartSolving();
+  }
 
   openHint() {
     const hint = this.#hints.findNextHint(this.store.board());

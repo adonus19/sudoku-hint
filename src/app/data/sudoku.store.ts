@@ -32,6 +32,9 @@ export class SudokuStore {
   private _flashes = signal<Array<{ kind: 'row' | 'col' | 'box'; index: number; origin: Coord }>>([]);
   private _win = signal<Coord | null>(null);
   private _history: Board[] = [];
+  private _worker: Worker | null = null;
+  private _hintsUsed = signal<number>(0);
+  private _hintTechniques = signal<Set<string>>(new Set<string>());
 
   // difficulty context (for multiplier)
   private _currentDifficulty = signal<Difficulty>('easy');
@@ -61,7 +64,17 @@ export class SudokuStore {
     })() as any
   );
 
-  private _worker: Worker | null = null;
+  private _lastSolved = signal<{
+    difficulty: 'easy' | 'medium' | 'hard' | 'expert';
+    timeMs: number;
+    score: number;
+    mistakes: number;
+    mistakePoints: number;
+    hintsUsed: number;
+    hintTechniques: string[];
+    newBest: boolean;
+  } | null>(null);
+
 
   board = this._board.asReadonly();
   selected = this._selected.asReadonly();
@@ -89,6 +102,7 @@ export class SudokuStore {
 
   scoreBump = computed(() => this._scoreBumping());
   floaters = this._floaters.asReadonly();
+  lastSolved = this._lastSolved.asReadonly();
 
   resetBoard() {
     this._board.set(createEmptyBoard());
@@ -164,6 +178,7 @@ export class SudokuStore {
         if (this.isSolvedBoard()) {
           this._flashes.set([]);
           this.stopTimer();
+          this.captureSolvedStats();
           this.triggerWinRipple(r, c);
         } else {
           this.triggerUnitFlash(r, c);
@@ -286,11 +301,13 @@ export class SudokuStore {
 
   // Apply hint result and refresh
   applyHint(h: HintResult) {
-    this.pushHistory();
     this._board.update(b => h.apply(b));
     this.recomputeCandidates();
     this._hl.set(null);
     this._selected.set({ r: h.target.r, c: h.target.c });
+
+    this._hintsUsed.update(n => n + 1);
+    this._hintTechniques.update(s => new Set([...s, h.kind]));
   }
 
   loadFromMatrix(matrix: number[][]) {
@@ -352,6 +369,9 @@ export class SudokuStore {
       this._undo = [];
       this._hl.set(null);
       this._solution.set(null);
+      this._hintsUsed.set(0);
+      this._hintTechniques.set(new Set());
+      this._lastSolved.set(null);
       this.recomputeCandidates();
       this.computeSolutionFromGivens?.();
 
@@ -445,6 +465,65 @@ export class SudokuStore {
       !sameSet(before.manualCands, after.manualCands);
 
     if (changed) this.pushUndo({ r, c, before, after, scoreDelta: 0 });
+  }
+
+  /** Enter given mode explicitly (used by manual / CSV / photo flows). */
+  enterGivenMode() {
+    this._editingGivenMode.set(true);
+    this._solution.set(null);
+    this._rating.set(null);
+  }
+
+  hasAnyValues(): boolean {
+    const b = this._board();
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      if (b[r][c].value) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Validate current givens: must have at least one value, no conflicts,
+   * and the puzzle must be solvable. If valid, switch to play mode,
+   * seed solution & start timer after 5s; otherwise stay in given mode.
+   */
+  tryStartSolving(): boolean {
+    if (!this._editingGivenMode()) return true;
+
+    if (!this.hasAnyValues()) {
+      alert('Please enter at least one number before starting.');
+      return false;
+    }
+
+    const conflicts = this.conflicts().cells.size;
+    if (conflicts > 0) {
+      alert('Your givens have conflicts. Please fix them before starting.');
+      return false;
+    }
+
+    // Build a board with only givens and solve it
+    const givensOnly = this._board().map(row => row.map(cell => ({
+      ...cell,
+      value: cell.given ? cell.value : 0 as Digit,
+      candidates: new Set<number>(),
+      suppressed: new Set<number>(),
+      manualCands: new Set<number>()
+    }))) as Board;
+
+    const solved = solveSudoku(givensOnly);   // returns number[][] | null
+    if (!solved) {
+      alert('This setup is not solvable. Please double-check your entries.');
+      return false;
+    }
+
+    // Success: enter play mode without re-solving
+    this._solution.set(solved);
+    this._editingGivenMode.set(false);
+    this._rating.set(null);
+    this.rateCurrentBoard();              // rate the user puzzle
+    this.startTimer(5000);   // 5s grace (if you added timer helpers)
+
+    return true;
   }
 
   private puzzleHash(b: Board): string {
@@ -725,5 +804,27 @@ export class SudokuStore {
     // keep only after last correct entry (we clear history on correct), and cap to 3
     this._undo.push(u);
     while (this._undo.length > this._undoLimit) this._undo.shift();
+  }
+
+  private captureSolvedStats() {
+    const bucket = this._rating()?.bucket ?? 'easy';
+    const timeMs = (this as any)._elapsedMs?.() ?? (this as any)._timerMs?.() ?? 0;
+    const score = (this as any)._score?.() ?? 0;
+    const mistakes = (this as any)._mistakes?.() ?? 0;
+    const mistakePts = (this as any)._mistakePoints?.() ?? 0;
+    const hints = this._hintsUsed();
+    const techs = Array.from(this._hintTechniques());
+    const newBest = false; // TODO: compare & persist later
+
+    this._lastSolved.set({
+      difficulty: bucket as any,
+      timeMs,
+      score,
+      mistakes,
+      mistakePoints: mistakePts,
+      hintsUsed: hints,
+      hintTechniques: techs,
+      newBest
+    });
   }
 }
