@@ -10,6 +10,7 @@ import { SudokuStore } from '../../data/sudoku.store';
 import { ImportDialog } from '../import-dialog/import-dialog';
 import { ImageImport } from '../image-import/image-import';
 import { NewPuzzleDialog } from '../new-puzzle-dialog/new-puzzle-dialog';
+import type { Bucket } from '../../data/sudoku.rater';
 
 @Component({
   selector: 'app-dashboard',
@@ -24,34 +25,59 @@ export class Dashboard {
 
   byDiff = this.#store.statsByDifficulty;
   total = this.#store.lifetimeStats;
+  resumables = computed(() => this.#store.getResumables());
 
-  mmss(ms: number | null) {
-    return this.#store.mmss(ms);
-  }
+  mmss(ms: number | null) { return this.#store.mmss(ms); }
 
-  manualEntry() {
-    // clear board and enter Given mode for user input
-    this.#store.resetBoard();
-    // ensure we remain in given mode to set givens
-    // (resetBoard() already sets editingGivenMode=true in your store)
+  // ---- Actions ----
+  async manualEntry() {
+    if (this.#store.hasActiveCustom()) {
+      const ok = window.confirm('Starting a new custom puzzle will erase your current custom game. Continue?');
+      if (!ok) return;
+      this.#store.clearActiveCustom();
+    }
+    this.#store.resetBoard();                 // blank board
+    this.#store.beginCustomEntry('manual');   // set active custom & enter given mode
     this.#router.navigate(['/play']);
   }
 
   importCsv() {
+    // You can also confirm overwrite here if desired
     this.#dialog.open(ImportDialog, { width: '520px', autoFocus: true });
   }
 
   importPhoto() {
-    this.#dialog.open(ImageImport, { width: '960px', maxWidth: '96vw', height: 'min(92vh, 1100px)', maxHeight: '92vh', autoFocus: false, panelClass: ['photo-dialog'] });
+    this.#dialog.open(ImageImport, {
+      width: '960px', maxWidth: '96vw',
+      height: 'min(92vh, 1100px)', maxHeight: '92vh',
+      autoFocus: false, panelClass: ['photo-dialog']
+    });
   }
 
   async generatePuzzle() {
-    // let user pick difficulty in your existing dialog, then start the game
     const ref = this.#dialog.open(NewPuzzleDialog, { width: '420px', autoFocus: true });
     const result = await ref.afterClosed().toPromise();
-    if (!result) return; // user cancelled
-    const { difficulty, symmetry } = result; // depends on your dialog's return shape
+    if (!result) return;
+    const { difficulty, symmetry } = result as { difficulty: Bucket; symmetry: 'central' | 'diagonal' | 'none' };
+
+    // Overwrite protection (one slot per difficulty)
+    if (this.#store.hasActiveGenerated(difficulty)) {
+      const ok = window.confirm(`Starting a new ${difficulty} game will erase your current ${difficulty} game. Continue?`);
+      if (!ok) return;
+      this.#store.clearActiveGenerated(difficulty);
+    }
+
     await this.#store.newPuzzle(difficulty, symmetry);
     this.#router.navigate(['/play']);
+  }
+
+  async resume(item: { key: any }) {
+    if (item.key.kind === 'generated') {
+      const ok = await this.#store.resumeGenerated(item.key.difficulty);
+      if (ok) this.#router.navigate(['/play']);
+    } else {
+      const ok = await this.#store.resumeCustom();
+      if (ok) this.#router.navigate(['/play']);
+    }
   }
 }

@@ -1,4 +1,25 @@
 <div class="dash">
+  @if (resumables().length) {
+  <mat-card class="resume">
+    <div class="resume-title">
+      <mat-icon>history</mat-icon>
+      <span>Resume</span>
+    </div>
+    <div class="resume-list">
+      @for (r of resumables(); track $index) {
+      <button
+        mat-stroked-button
+        (click)="resume(r)"
+      >
+        <mat-icon>{{ r.key.kind === 'generated' ? 'auto_awesome' : 'edit' }}</mat-icon>
+        <span>{{ r.label | titlecase}}</span>
+        <span class="prog">{{ (r.progress * 100) | number : '1.0-0' }}%</span>
+      </button>
+      }
+    </div>
+  </mat-card>
+  }
+
   <mat-card class="hero">
     <div class="title">
       <mat-icon>lightbulb</mat-icon>

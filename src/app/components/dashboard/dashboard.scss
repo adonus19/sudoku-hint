@@ -171,6 +171,37 @@
   color: rgba(0, 0, 0, .45);
 }
 
+.resume {
+  margin-bottom: 16px;
+  padding: 18px;
+}
+
+.resume-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.resume-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.resume-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resume-list .prog {
+  padding-left: 1rem;
+  opacity: .7;
+}
+
 @media (max-width: 799px) {
 
   .stats-grid,

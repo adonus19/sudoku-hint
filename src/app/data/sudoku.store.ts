@@ -34,29 +34,37 @@ type DiffStats = {
   techniques: Set<string>;
 };
 
-type ActiveKey =
+export type ActiveKey =
   | { kind: 'generated'; difficulty: Bucket }
   | { kind: 'custom'; origin?: 'manual' | 'csv' | 'photo' };
 
 type GameSnapshot = {
   key: ActiveKey;
-  board: any;                      // serialized board (see helpers below)
+  board: any;                      // serialized board (sets -> arrays)
   selected: Coord | null;
   editingGiven: boolean;
   pencilMode: boolean;
   timerSec: number;
   score: number;
-  difficulty: Bucket;              // for scoring multiplier + HUD
+  difficulty: Bucket;
   solution: number[][] | null;
-  rating: DifficultyRating | null; // keep label stable after resume
+  rating: DifficultyRating | null;
   savedAt: number;
 };
 
 type ActiveStore = {
-  active: ActiveKey | null;        // last active game key (optional, not auto-resuming)
+  active: ActiveKey | null;
   generated: Partial<Record<Bucket, GameSnapshot | null>>;
-  custom: GameSnapshot | null;
+  custom: (GameSnapshot & { key: { kind: 'custom'; origin?: 'manual' | 'csv' | 'photo' } }) | null;
 };
+
+export interface ResumableItem {
+  key: ActiveKey;
+  label: string;
+  progress: number;
+  savedAt: number;
+  rating?: DifficultyRating | null;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -455,6 +463,7 @@ export class SudokuStore {
   }
 
   loadFromMatrix(matrix: number[][]) {
+    this._activeKey.set({ kind: 'custom', origin: 'csv' });
     const next = this._board().map(row => row.map(cell => ({
       ...cell,
       value: 0 as Digit,
@@ -672,6 +681,9 @@ export class SudokuStore {
     this.rateCurrentBoard();              // rate the user puzzle
     this.startTimer(5000);   // 5s grace (if you added timer helpers)
 
+    if (!this._activeKey()) {
+      this._activeKey.set({ kind: 'custom', origin: 'manual' });
+    }
     return true;
   }
 
@@ -684,6 +696,7 @@ export class SudokuStore {
   hasActiveGenerated(d: Bucket): boolean {
     return !!this._activeStore.generated?.[d];
   }
+
   hasActiveCustom(): boolean {
     return !!this._activeStore.custom;
   }
@@ -692,10 +705,12 @@ export class SudokuStore {
     if (this._activeStore.generated) this._activeStore.generated[d] = null as any;
     this.saveActiveStore();
   }
+
   clearActiveCustom() {
     this._activeStore.custom = null;
     this.saveActiveStore();
   }
+
   clearCurrentActive() {
     const key = this._activeKey();
     if (!key) return;
@@ -704,19 +719,36 @@ export class SudokuStore {
     this._activeKey.set(null);
   }
 
-  getResumables(): Array<{ key: ActiveKey; progress: number; savedAt: number; rating?: DifficultyRating | null }> {
-    const list: Array<{ key: ActiveKey; progress: number; savedAt: number; rating?: DifficultyRating | null }> = [];
+  getResumables(): ResumableItem[] {
+    const list: ResumableItem[] = [];
+
+    // generated slots
     for (const d of ['easy', 'medium', 'hard', 'expert'] as Bucket[]) {
       const s = this._activeStore.generated?.[d];
       if (s) {
-        list.push({ key: { kind: 'generated', difficulty: d }, progress: this.progressOf(s.board), savedAt: s.savedAt, rating: s.rating });
+        list.push({
+          key: { kind: 'generated', difficulty: d },
+          label: `Generated • ${d}`,
+          progress: this.progressOf(s.board),
+          savedAt: s.savedAt,
+          rating: s.rating
+        });
       }
     }
-    if (this._activeStore.custom) {
-      const s = this._activeStore.custom;
-      list.push({ key: { kind: 'custom', origin: s.key?.origin }, progress: this.progressOf(s.board), savedAt: s.savedAt, rating: s.rating });
+
+    // custom slot (narrowed by ActiveStore type)
+    const cs = this._activeStore.custom;
+    if (cs) {
+      const origin = cs.key.origin ?? 'manual';
+      list.push({
+        key: { kind: 'custom', origin },
+        label: `Custom • ${origin}`,
+        progress: this.progressOf(cs.board),
+        savedAt: cs.savedAt,
+        rating: cs.rating
+      });
     }
-    // newest first if you like:
+
     return list.sort((a, b) => b.savedAt - a.savedAt);
   }
 
@@ -1065,6 +1097,7 @@ export class SudokuStore {
       for (const t of techs) next.techniques.add(t);
       return { ...all, [bucket]: next };
     });
+    this.clearCurrentActive(); // clear active on solve
   }
 
   private serializeStats(s: Record<Bucket, DiffStats>) {
@@ -1162,7 +1195,11 @@ export class SudokuStore {
     if (key.kind === 'generated') {
       this._activeStore.generated[key.difficulty] = snap;
     } else {
-      this._activeStore.custom = snap;
+      const customSnap: GameSnapshot & { key: { kind: 'custom'; origin?: 'manual' | 'csv' | 'photo' } } = {
+        ...snap,
+        key: { kind: 'custom', origin: key.origin },
+      };
+      this._activeStore.custom = customSnap;
     }
     this._activeStore.active = key;
     this.saveActiveStore();
