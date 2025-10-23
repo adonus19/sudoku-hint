@@ -6,7 +6,16 @@
     (click)="pressDigit(d)"
     [disabled]="!store.pencilMode() && isDigitExhausted(d)"
     [class.exhausted]="!store.pencilMode() && isDigitExhausted(d)"
-    aria-label="Digit {{ d }}{{ isDigitExhausted(d) && !store.pencilMode() ? ' (complete)' : '' }}"
-  >{{ d }}</button>
+    [attr.aria-label]="'Digit ' + d + (isDigitExhausted(d) && !store.pencilMode() ? ' (complete)' : '')"
+    [title]="'Left: ' + leftovers()[d]"
+  >
+    <span
+      class="stack"
+      aria-hidden="true"
+    >
+      <span class="glyph">{{ d }}</span>
+      <span class="leftover">{{ leftovers()[d] }}</span>
+    </span>
+  </button>
   }
 </div>

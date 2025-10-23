@@ -163,6 +163,19 @@ export class SudokuStore {
     return `${m}:${ss}`;
   });
 
+  leftovers = computed(() => {
+    const placed = Array(10).fill(0); // index by digit
+    const b = this._board();
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const v = b[r][c].value;
+      if (v >= 1 && v <= 9) placed[v]++;
+    }
+    // return as a simple array indexed by digit; value is remaining (9 - placed)
+    const rem = Array(10).fill(0);
+    for (let d = 1; d <= 9; d++) rem[d] = Math.max(0, 9 - placed[d]);
+    return rem as ReadonlyArray<number>;
+  });
+
   scoreBump = computed(() => this._scoreBumping());
   floaters = this._floaters.asReadonly();
   lastSolved = this._lastSolved.asReadonly();
