@@ -4,7 +4,7 @@
     class="d"
     mat-stroked-button
     (click)="pressDigit(d)"
-    [disabled]="!store.pencilMode() && isDigitExhausted(d)"
+    [disabled]="store.reviewMode() || (!store.pencilMode() && isDigitExhausted(d))"
     [class.exhausted]="!store.pencilMode() && isDigitExhausted(d)"
     [attr.aria-label]="'Digit ' + d + (isDigitExhausted(d) && !store.pencilMode() ? ' (complete)' : '')"
     [title]="'Left: ' + leftovers()[d]"

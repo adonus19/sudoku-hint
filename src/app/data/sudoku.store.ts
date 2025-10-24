@@ -94,6 +94,7 @@ export class SudokuStore {
   private _origin = signal<'generated' | 'manual' | 'csv' | 'photo'>('generated');
   private _autoFillDismissed = signal<boolean>(false);
   private _autoFilling = signal<boolean>(false);
+  private _reviewMode = signal<boolean>(false);
 
   // difficulty context (for multiplier)
   private _currentDifficulty = signal<Difficulty>('easy');
@@ -138,9 +139,8 @@ export class SudokuStore {
   private _activeKey = signal<ActiveKey | null>(null);
   private _saveDebounce: any = null;
   private _activeStore: ActiveStore = { active: null, generated: {}, custom: null };
-
   private readonly STATS_KEY = 'sdk_stats_v1';
-
+  private _lastSolvedSnap: Board | null = null;
 
 
   board = this._board.asReadonly();
@@ -158,6 +158,7 @@ export class SudokuStore {
   reveal = this._reveal.asReadonly();
   flashes = this._flashes.asReadonly();
   win = this._win.asReadonly();
+  reviewMode = this._reviewMode.asReadonly();
 
   // HUD
   score = computed(() => this._scoreShown());
@@ -329,6 +330,7 @@ export class SudokuStore {
     this._origin.set('generated');
     this._autoFillDismissed.set(false);
     this._autoFilling.set(false);
+    this._reviewMode.set(false);
   }
 
   toggleFullScreenBoard() {
@@ -603,6 +605,7 @@ export class SudokuStore {
       this._origin.set('generated');
       this._autoFillDismissed.set(false);
       this._autoFilling.set(false);
+      this._reviewMode.set(false);
       this.recomputeCandidates();
       this.computeSolutionFromGivens?.();
 
@@ -915,6 +918,26 @@ export class SudokuStore {
     }
 
     this._autoFilling.set(false);
+  }
+
+  beginReviewFromLastSolved(): boolean {
+    if (!this._lastSolvedSnap) return false;
+
+    // restore the exact solved board
+    this._board.set(this.cloneBoard(this._lastSolvedSnap));
+    this._selected.set(null);
+    this._editingGivenMode.set(false);
+    this._pencilMode.set(false);
+
+    // keep solution available (compute if missing)
+    if (!this._solution()) this.computeSolutionFromGivens();
+    this.pauseTimer();
+    this._reviewMode.set(true);
+    return true;
+  }
+
+  endReview() {
+    this._reviewMode.set(false);
   }
 
   private progressOf(serialized: any): number {
@@ -1245,6 +1268,8 @@ export class SudokuStore {
       for (const t of techs) next.techniques.add(t);
       return { ...all, [bucket]: next };
     });
+
+    this._lastSolvedSnap = this.cloneBoard(this._board());
     this.clearCurrentActive(); // clear active on solve
   }
 

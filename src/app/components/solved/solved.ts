@@ -57,4 +57,10 @@ export class Solved {
     this.store.enterGivenMode();          // stay in Given mode for typing
     this.router.navigate(['/play']);      // open the board in entry mode
   }
+
+  async reviewBoard() {
+    const ok = this.store.beginReviewFromLastSolved();
+    if (!ok) { alert('Sorry, there’s no finished board to review.'); return; }
+    this.router.navigate(['/play']); // board opens in read-only review mode
+  }
 }

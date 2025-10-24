@@ -405,6 +405,15 @@
    color: rgba(211, 47, 47, 1);
  }
 
+ .board.review .cell {
+   pointer-events: none;
+ }
+
+ .board.review .cell .val {
+   /* optional subtle cue */
+   filter: saturate(.9);
+ }
+
  @keyframes floatUpBoard {
    0% {
      opacity: 0;

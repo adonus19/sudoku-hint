@@ -44,6 +44,7 @@
       [class.reveal]="store.reveal()"
       [class.flash-active]="store.flashActive()"
       [class.win]="!!store.win()"
+      [class.review]="store.reviewMode()"
       [style.--ox]="store.win() ? ( (store.win()!.c + 0.5) / 9 * 100 ) + '%' : null"
       [style.--oy]="store.win() ? ( (store.win()!.r + 0.5) / 9 * 100 ) + '%' : null"
     >
@@ -81,6 +82,7 @@
             role="gridcell"
             [ngClass]="cellClasses(r,c)"
             [class.readonly]="isGiven(r,c) && !store.editingGivenMode()"
+            [attr.aria-disabled]="(isGiven(r,c) && !store.editingGivenMode()) || store.reviewMode() ? 'true' : null"
             (click)="onCellClick(r,c)"
             (mouseenter)="onHover(r,c,true)"
             (mouseleave)="onHover(r,c,false)"
