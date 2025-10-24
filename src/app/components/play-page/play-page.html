@@ -1,4 +1,17 @@
 <div class="play-wrap safe-bottom">
+  @if (store.canFullAutoSolve()) {
+  <div class="solve-strip">
+    <button
+      class="ghost"
+      mat-stroked-button
+      (click)="openSolveConfirm()"
+    >
+      <mat-icon>psychology</mat-icon>
+      <span>Auto-solve</span>
+    </button>
+  </div>
+  }
+
   <div class="hud">
     <div class="cell left">
       <div
@@ -22,11 +35,40 @@
     </div>
   </div>
 
-  <!-- REMOVE the old .controls block entirely -->
-
   <div class="board-wrap">
     <app-board></app-board>
+
+    @if (store.autoFillOfferVisible()) {
+    <div class="under-board-layer">
+      <div
+        class="auto-fill-flyin"
+        role="status"
+        aria-live="polite"
+        [class.closing]="closingAutoFill"
+        (animationend)="onAutoFillAnimEnd($event)"
+      >
+        <button
+          class="cta"
+          mat-flat-button
+          color="primary"
+          (click)="store.autoFillRemaining()"
+        >
+          <mat-icon>bolt</mat-icon>
+          <span>Finish last numbers</span>
+        </button>
+        <button
+          class="dismiss"
+          mat-icon-button
+          aria-label="Not now"
+          (click)="dismissAutoFillFlyin()"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+    }
   </div>
+
 
   <!-- Start Solving bar (visible only during given mode) -->
   @if (store.editingGivenMode()) {
@@ -115,6 +157,7 @@
       <mat-icon class="ic">lightbulb</mat-icon>
       <span class="lbl">Hint</span>
     </button>
+
   </div>
 
   <app-number-pad class="pad"></app-number-pad>
@@ -123,4 +166,5 @@
     class="ad-reserve"
     aria-hidden="true"
   ></div>
+
 </div>

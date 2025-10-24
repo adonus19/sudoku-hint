@@ -91,6 +91,9 @@ export class SudokuStore {
   private _mistakePoints = signal<number>(0);
   private _stats = signal<Record<Bucket, DiffStats>>(emptyStats());
   private _paused = signal<boolean>(false);
+  private _origin = signal<'generated' | 'manual' | 'csv' | 'photo'>('generated');
+  private _autoFillDismissed = signal<boolean>(false);
+  private _autoFilling = signal<boolean>(false);
 
   // difficulty context (for multiplier)
   private _currentDifficulty = signal<Difficulty>('easy');
@@ -146,6 +149,7 @@ export class SudokuStore {
   pencilMode = this._pencilMode.asReadonly();
   highlight = this._hl.asReadonly();
   fullScreenBoard = this._fullScreenBoard.asReadonly();
+  origin = this._origin.asReadonly();
 
   conflicts = computed(() => detectConflicts(this._board()));
   solution = this._solution.asReadonly();
@@ -177,6 +181,23 @@ export class SudokuStore {
     for (let d = 1; d <= 9; d++) rem[d] = Math.max(0, 9 - placed[d]);
     return rem as ReadonlyArray<number>;
   });
+
+  unsolvedLeft = computed(() => {
+    const b = this._board();
+    let n = 0;
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (!b[r][c].value) n++;
+    return n;
+  });
+
+  autoFillOfferVisible = computed(() =>
+    !this._editingGivenMode() &&
+    !this._autoFilling() &&
+    this.unsolvedLeft() > 0 &&
+    this.unsolvedLeft() <= 8 &&
+    !this._autoFillDismissed()
+  );
+
+  canFullAutoSolve = computed(() => this._origin() !== 'generated' && !this._editingGivenMode());
 
   scoreBump = computed(() => this._scoreBumping());
   floaters = this._floaters.asReadonly();
@@ -305,6 +326,9 @@ export class SudokuStore {
     this._mistakes.set(0);
     this._mistakePoints.set(0);
     this._stats.set(this._stats());
+    this._origin.set('generated');
+    this._autoFillDismissed.set(false);
+    this._autoFilling.set(false);
   }
 
   toggleFullScreenBoard() {
@@ -409,6 +433,9 @@ export class SudokuStore {
     this._undo = [];
     this._mistakes.set(0);
     this._mistakePoints.set(0);
+    this._origin.set('manual');
+    this._autoFillDismissed.set(false);
+    this._autoFilling.set(false);
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
     this._rating.set(null);
@@ -527,6 +554,9 @@ export class SudokuStore {
     this._undo = [];
     this._mistakes.set(0);
     this._mistakePoints.set(0);
+    this._origin.set('csv');
+    this._autoFillDismissed.set(false);
+    this._autoFilling.set(false);
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
     this.startTimer(5000);
@@ -570,6 +600,9 @@ export class SudokuStore {
       this._mistakes.set(0);
       this._mistakePoints.set(0);
       this._paused.set(false);
+      this._origin.set('generated');
+      this._autoFillDismissed.set(false);
+      this._autoFilling.set(false);
       this.recomputeCandidates();
       this.computeSolutionFromGivens?.();
 
@@ -718,6 +751,9 @@ export class SudokuStore {
     this._solution.set(solved);
     this._editingGivenMode.set(false);
     this._rating.set(null);
+    this._origin.set('manual');
+    this._autoFillDismissed.set(false);
+    this._autoFilling.set(false);
     this.rateCurrentBoard();              // rate the user puzzle
     this.startTimer(5000);   // 5s grace (if you added timer helpers)
 
@@ -819,6 +855,66 @@ export class SudokuStore {
     if (!this._paused()) return;
     this._paused.set(false);
     this.resumeTimer(); // already in your store
+  }
+
+  dismissAutoFillOffer() {
+    this._autoFillDismissed.set(true);
+  }
+
+  async autoFillRemaining(speedMs = 90) {
+    const sol = this._solution();
+    if (!sol) return;
+    if (this.unsolvedLeft() === 0) return;
+
+    this._autoFilling.set(true);
+    this._autoFillDismissed.set(true); // hide toast
+
+    // row-major fill of currently empty cells
+    const cells: Array<{ r: number; c: number; v: number }> = [];
+    const b = this._board();
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      if (!b[r][c].value) cells.push({ r, c, v: sol[r][c] });
+    }
+
+    for (const { r, c, v } of cells) {
+      // User might fill while we’re running; re-check empty:
+      if (!this._board()[r][c].value) {
+        this.setCellValue(r, c, v as Digit, { asGiven: false });
+        await this.sleep(speedMs);
+      }
+    }
+
+    this._autoFilling.set(false);
+  }
+
+  async autoSolveFull(speedMs = 60) {
+    if (this._origin() === 'generated') return;
+
+    // Prefer existing solution; if absent, compute from givens.
+    let sol = this._solution();
+    if (!sol) {
+      const solved = solveSudoku(this.givensOnlyBoard());
+      if (!solved) return; // invalid board
+      sol = solved;
+      this._solution.set(sol);
+    }
+
+    this._autoFilling.set(true);
+
+    const b = this._board();
+    const cells: Array<{ r: number; c: number; v: number }> = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      if (!b[r][c].value) cells.push({ r, c, v: sol[r][c] });
+    }
+
+    for (const { r, c, v } of cells) {
+      if (!this._board()[r][c].value) {
+        this.setCellValue(r, c, v as Digit, { asGiven: false });
+        await this.sleep(speedMs);
+      }
+    }
+
+    this._autoFilling.set(false);
   }
 
   private progressOf(serialized: any): number {
@@ -1283,5 +1379,19 @@ export class SudokuStore {
     if (!this.isSolvedBoard() && !this._editingGivenMode()) {
       this.startTimer();             // resume immediately
     }
+  }
+
+  private sleep(ms: number) {
+    return new Promise(res => setTimeout(res, ms));
+  }
+
+  private givensOnlyBoard(): Board {
+    return this._board().map(row => row.map(cell => ({
+      ...cell,
+      value: cell.given ? cell.value : 0 as Digit,
+      candidates: new Set<number>(),
+      suppressed: new Set<number>(),
+      manualCands: new Set<number>()
+    }))) as Board;
   }
 }

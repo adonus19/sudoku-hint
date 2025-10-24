@@ -15,6 +15,7 @@ import { HintService } from '../../hint/hint.service';
 import { HintDialog } from '../hint-dialog/hint-dialog';
 import { HintSheet } from '../hint-sheet/hint-sheet';
 import { PauseDialog } from '../pause-dialog/pause-dialog';
+import { SolveConfirmDialog } from '../../solver/solve-confirm-dialog';
 
 @Component({
   selector: 'app-play-page',
@@ -30,12 +31,12 @@ export class PlayPage {
   #sheet = inject(MatBottomSheet);
   #bp = inject(BreakpointObserver);
 
+  closingAutoFill = false;
+
   constructor() {
-    // existing effects...
     effect(() => {
       const w = this.store.win();
       if (w) {
-        // let the win ripple/celebration play; then navigate
         setTimeout(() => this.router.navigate(['/solved']), 1200);
       }
     });
@@ -61,14 +62,6 @@ export class PlayPage {
 
   openPause() {
     this.store.pauseGame();
-    // const ref = this.#dialog.open(PauseDialog, {
-    //   panelClass: ['pause-dialog'],
-    //   backdropClass: ['pause-backdrop'],
-    //   disableClose: true,
-    //   width: 'min(520px, 90vw)',
-    //   maxWidth: '96vw',
-    //   maxHeight: '90vh'
-    // });
 
     const ref = this.#dialog.open(PauseDialog, {
       autoFocus: false,
@@ -84,12 +77,18 @@ export class PlayPage {
 
     ref.afterClosed().subscribe(action => {
       if (action === 'quit') {
-        // optional: persist the snapshot here if you want
-        // this.store.persistActive();
         this.router.navigate(['/dashboard']);
-      } else {
-        // resume handled in dialog; nothing else to do
       }
+    });
+  }
+
+  openSolveConfirm() {
+    const ref = this.#dialog.open(SolveConfirmDialog, {
+      panelClass: ['frosted-dialog'],
+      backdropClass: 'glass-backdrop'
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (ok) this.store.autoSolveFull();
     });
   }
 
@@ -105,5 +104,18 @@ export class PlayPage {
 
   togglePencil() {
     this.store.togglePencilMode();
+  }
+
+  dismissAutoFillFlyin() {
+    // trigger CSS slide-out, then actually dismiss in store
+    this.closingAutoFill = true;
+  }
+
+  onAutoFillAnimEnd(ev: AnimationEvent) {
+    // When slide-out finishes, hide for real
+    if (this.closingAutoFill && ev.animationName === 'toastOut') {
+      this.closingAutoFill = false;
+      this.store.dismissAutoFillOffer();
+    }
   }
 }
