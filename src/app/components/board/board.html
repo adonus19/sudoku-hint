@@ -2,13 +2,8 @@
   class="board-outer"
   [class.labels-off]="store.fullScreenBoard()"
 >
-
-  <!-- overlay while generating -->
   @if (store.busy()) {
-  <div
-    class="loading-overlay"
-    aria-live="polite"
-  >
+  <div class="loading-overlay">
     <mat-progress-spinner
       mode="indeterminate"
       diameter="48"
@@ -21,23 +16,22 @@
   <div class="col-labels">
     <div class="corner"></div>
     @for (c of cols; track $index) {
-    <div class="col-label">{{ c+1 }}</div>
+    <div class="col-label ring">{{ c+1 }}</div>
     }
   </div>
   }
-
 
   <div class="row">
     @if (!store.fullScreenBoard()) {
     <div class="row-labels">
       @for (r of rows; track $index) {
-      <div class="row-label">{{ rowLetter(r) }}</div>
+      <div class="row-label ring">{{ rowLetter(r) }}</div>
       }
     </div>
     }
 
     <div
-      class="board"
+      class="board card-glass"
       role="grid"
       tabindex="0"
       (click)="focusBoard()"
@@ -48,7 +42,6 @@
       [style.--ox]="store.win() ? ( (store.win()!.c + 0.5) / 9 * 100 ) + '%' : null"
       [style.--oy]="store.win() ? ( (store.win()!.r + 0.5) / 9 * 100 ) + '%' : null"
     >
-
       <div
         class="points-layer"
         aria-hidden="true"
@@ -59,7 +52,9 @@
           [class.neg]="Number(f.text) < 0"
           [style.--row]="f.r"
           [style.--col]="f.c"
-        >{{ Number(f.text) > 0 ? '+' : ''}}{{ Number(f.text) }}</span>
+        >
+          {{ Number(f.text) > 0 ? '+' : ''}}{{ Number(f.text) }}
+        </span>
         }
       </div>
 
@@ -94,7 +89,6 @@
             [class.unit-flash]="hasFlashAt(r,c)"
             [style.--delay]="flashDelay(r,c)"
           >
-
             @if (hasValue(r,c)) {
             <span class="val">{{ cellValue(r,c) }}</span>
             } @else {

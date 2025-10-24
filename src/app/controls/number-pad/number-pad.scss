@@ -6,17 +6,36 @@
 .pad {
   display: grid;
   grid-template-columns: repeat(9, minmax(0, 1fr));
-  /* single row */
   gap: 8px;
   margin: 6px auto 0;
   max-width: 680px;
   width: 100%;
 }
 
-/* kill Material's big min-width so we don't wrap */
+/* kill Material min-width */
 .pad button.mat-mdc-button-base,
 .pad .mdc-button {
   min-width: 0;
+}
+
+/* Each digit button uses ring style */
+.pad button,
+.d {
+  position: relative;
+  min-height: 44px;
+  font-size: 18px;
+  padding: 6px 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #eaf0ff;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
+  transition: transform .06s ease, box-shadow .12s ease, filter .12s ease;
+}
+
+.pad button:active {
+  transform: translateY(1px) scale(.985);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .35);
 }
 
 .stack {
@@ -29,39 +48,25 @@
   gap: 2px;
 }
 
-.pad button,
-.d {
-  position: relative;
-  min-height: 40px;
-  font-size: 16px;
-  padding: 6px 0;
-  /* give it a lifted look */
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .56), 0 1px 2px rgba(0, 0, 0, .08);
-  transition: transform .06s ease, box-shadow .12s ease;
-}
-
-.pad button:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
-}
-
-/* main number */
 .glyph {
   font-size: clamp(18px, 2rem, 22px);
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: .3px;
 }
 
 .leftover {
-  font-size: clamp(10px, 0.5rem, 12px);
+  font-size: clamp(10px, 0.9rem, 12px);
   padding: 0 6px;
+  opacity: .85;
 }
 
 .exhausted {
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .12);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.14);
   opacity: .55;
+  filter: grayscale(.2);
 }
 
+/* Pencil ON ring highlight (if you add a .pencil.on on host) */
 .pencil {
   display: flex;
   align-items: center;
@@ -70,19 +75,17 @@
 }
 
 .on {
-  box-shadow: inset 0 0 0 2px rgba(25, 118, 210, .9);
+  box-shadow: inset 0 0 0 2px rgba(122, 108, 255, .85), 0 0 18px rgba(122, 108, 255, .25);
 }
 
 .d .mdc-button__label {
   display: flex;
   flex-direction: column;
-  /* <-- stack */
   align-items: center;
   justify-content: center;
   width: 100%;
   line-height: 1;
   gap: 2px;
-  /* tiny space between number and leftover */
 }
 
 @media (max-width: 599px) {
@@ -93,8 +96,8 @@
 
   .pad button,
   .d {
-    min-height: 34px;
-    font-size: 14px;
+    min-height: 38px;
+    font-size: 16px;
     padding: 4px 0;
   }
 }

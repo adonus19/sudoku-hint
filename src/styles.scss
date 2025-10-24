@@ -1,38 +1,55 @@
-// Include theming for Angular Material with `mat.theme()`.
-// This Sass mixin will define CSS variables that are used for styling Angular Material
-// components according to the Material 3 design spec.
-// Learn more about theming and how to use it for your application's
-// custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
+/* ===== Material 3 — Dark base ===== */
+$theme: mat.define-theme((color: (theme-type: dark,
+        /* switch to dark */
+        primary: mat.$azure-palette,
+        tertiary: mat.$violet-palette,
+        use-system-variables: true,
+      )));
+
 html {
-  @include mat.theme((color: (primary: mat.$cyan-palette,
-        accent: mat.$orange-palette,
-        warn: mat.$red-palette,
-      ),
-      typography: Roboto,
-      density: 0,
-    ));
+  @include mat.theme($theme);
 }
 
+/* ===== Global tokens for the "dark-glassy + neon" look ===== */
+:root {
+  --ink-900: #0e1220;
+  --ink-800: #131a2a;
+  --ink-700: #19213a;
+
+  --glass-700: rgba(255, 255, 255, 0.06);
+  --stroke-600: rgba(255, 255, 255, 0.12);
+
+  --accent-1: #5aa7ff;
+  /* electric blue */
+  --accent-2: #7a6cff;
+  /* indigo-violet */
+  --accent-3: #ff6bd6;
+  /* magenta-pink */
+  --success: #5dd39e;
+  --warn: #ffb74d;
+  --error: #ff6b6b;
+
+  --gradient-hero: linear-gradient(135deg, #1a2a6c 0%, #2a3b8f 35%, #6a00ff 100%);
+  --gradient-cta: linear-gradient(135deg, #5aa7ff 0%, #7a6cff 100%);
+  --mat-sys-error: #ff6b6b;
+  --mat-sys-on-error: #0a0f1c;
+  --mat-sys-error-container: #3d0d15;
+  --mat-sys-on-error-container: #ffdadd;
+}
+
+/* Background + typography */
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
-  color-scheme: light;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
+  color-scheme: dark;
+  background:
+    radial-gradient(1200px 800px at 70% -10%, rgba(122, 108, 255, 0.18), transparent 60%),
+    radial-gradient(900px 600px at 0% 100%, rgba(90, 167, 255, 0.16), transparent 60%),
+    var(--ink-900);
+  color: #eaf0ff;
   font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
   margin: 0;
 }
-
-/* You can add global styles to this file, and also import other style files */
 
 html,
 body {
@@ -40,42 +57,69 @@ body {
 }
 
 body {
-  margin: 0;
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
-.hint-dialog-floating {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-  border-radius: 8px;
-  pointer-events: auto;
-  /* allow interaction */
+/* ===== Reusable surfaces ===== */
+.card-glass {
+  background: var(--glass-700);
+  border: 1px solid var(--stroke-600);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
-/* Make hint overlays more apparent */
+.ring {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.btn-pill {
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--gradient-cta);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(106, 0, 255, 0.35);
+}
+
+/* Ghost pill (subtle buttons) */
+.pill {
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: #eaf0ff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Existing utility styles adapted to dark ===== */
+.hint-dialog-floating {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .55);
+  border-radius: 12px;
+}
+
 .app-hint-amber {
-  background: rgba(255, 193, 7, .12) !important;
+  background: rgba(255, 193, 7, .14) !important;
 }
 
 .app-hint-target {
   box-shadow: inset 0 0 0 3px rgba(255, 193, 7, .95) !important;
 }
 
-/* Optional: slightly increase general highlight contrast */
 .app-hl-blue {
-  background: rgba(25, 118, 210, .10) !important;
+  background: rgba(90, 167, 255, .12) !important;
 }
 
 .app-hl-blue-strong {
-  background: rgba(25, 118, 210, .16) !important;
+  background: rgba(90, 167, 255, .18) !important;
 }
 
-.hint-dialog-floating {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-  border-radius: 8px;
-  pointer-events: auto;
-}
-
-/* Keep toolbar compact on small screens */
 @media (max-width: 599px) {
 
   .mat-toolbar-row,
@@ -84,15 +128,20 @@ body {
   }
 }
 
-.photo-dialog .mat-mdc-dialog-surface {
-  border-radius: 12px;
+/* Dialogs → frosted glass variant */
+.photo-dialog .mat-mdc-dialog-surface,
+.frosted-dialog .mat-mdc-dialog-surface {
+  background: rgba(18, 25, 46, 0.7);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  border-radius: 16px;
 }
 
 .photo-dialog .mat-mdc-dialog-content {
   padding: 16px 16px 0;
-  /* breathing room left/right */
   max-height: calc(92vh - 64px);
-  /* keep footer visible */
   overflow: auto;
 }
 
@@ -104,36 +153,7 @@ body {
   z-index: 12000 !important;
 }
 
-// .pause-backdrop {
-//   background: rgba(0, 0, 0, .55) !important;
-// }
-
-// .glass-backdrop {
-//   background: rgba(15, 23, 42, 0.35);
-//   /* slate-ish w/ alpha */
-//   // backdrop-filter: blur(12px) saturate(110%);
-//   // -webkit-backdrop-filter: blur(12px) saturate(110%);
-//   /* iOS Safari */
-// }
-
-/* “Frosted” dialog surface */
-.frosted-dialog .mat-mdc-dialog-surface {
-  background: rgba(255, 255, 255, 0.65);
-  /* semi-opaque glass */
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
-  overflow: hidden;
-}
-
-/* Optional: round the dialog a bit for the iOS vibe */
-.frosted-dialog .mat-mdc-dialog-surface {
-  border-radius: 16px;
-}
-
-/* Optional fallback for browsers without backdrop-filter:
-   while paused, also blur the board itself. */
+/* Pause effect */
 body.paused .board {
   filter: blur(8px) saturate(90%);
   pointer-events: none;

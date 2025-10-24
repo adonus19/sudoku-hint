@@ -2,10 +2,12 @@
   padding: clamp(12px, 3vw, 24px);
   max-width: 980px;
   margin: 0 auto;
+  color: #eaf0ff;
 }
 
 .hero {
   padding: 18px;
+  background: linear-gradient(135deg, rgba(90, 167, 255, .10), rgba(122, 108, 255, .10));
 }
 
 .title {
@@ -19,6 +21,8 @@
   font-size: 36px;
   width: 36px;
   height: 36px;
+  color: var(--accent-1);
+  filter: drop-shadow(0 2px 8px rgba(90, 167, 255, .45));
 }
 
 .title h1 {
@@ -28,7 +32,8 @@
 
 .sub {
   margin: 2px 0 0;
-  color: rgba(0, 0, 0, .6);
+  color: #c9d5ff;
+  opacity: .9;
 }
 
 .actions {
@@ -43,46 +48,11 @@
   }
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 14px;
-}
-
-@media (max-width: 900px) {
-  .stats {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 599px) {
-  .stats {
-    grid-template-columns: 1fr;
-  }
-}
-
-.stat {
-  padding: 14px;
-  display: grid;
-  gap: 6px;
-}
-
-.k {
-  font-size: 13px;
-  color: rgba(0, 0, 0, .6);
-}
-
-.v {
-  font-size: 22px;
-  font-weight: 700;
-}
-
+/* Stats card */
 .dash-card.stats {
-  background: #fff;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, .10);
   margin-top: 16px;
 }
 
@@ -100,7 +70,7 @@
   .totals {
     display: flex;
     gap: 12px;
-    color: rgba(0, 0, 0, .65);
+    color: #c9d5ff;
     font-size: 14px;
   }
 }
@@ -112,15 +82,29 @@
   margin-top: 12px;
 }
 
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 599px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .scol {
-  background: #fafafa;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 12px;
 }
 
 .scol .h {
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 8px;
+  color: #eaf0ff;
 }
 
 .scol .r {
@@ -128,10 +112,12 @@
   justify-content: space-between;
   padding: 4px 0;
   font-size: 14px;
+  color: #dfe6ff;
 }
 
 .scol .r span:last-child {
-  font-weight: 600;
+  font-weight: 700;
+  color: #fff;
 }
 
 .techs {
@@ -141,16 +127,26 @@
   margin-top: 14px;
 }
 
+@media (max-width: 799px) {
+
+  .stats-grid,
+  .techs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .tcol {
-  background: #f7f7f7;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 10px;
 }
 
 .th {
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 6px;
   font-size: 13px;
+  color: #eaf0ff;
 }
 
 .chips {
@@ -160,17 +156,20 @@
 }
 
 .chip {
-  background: #e8f0fe;
-  color: #1a73e8;
+  background: rgba(90, 167, 255, .18);
+  color: #eaf0ff;
+  border: 1px solid rgba(255, 255, 255, .14);
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 12px;
 }
 
 .dim {
-  color: rgba(0, 0, 0, .45);
+  color: #c9d5ff;
+  opacity: .7;
 }
 
+/* Resume card */
 .resume {
   margin-bottom: 16px;
   padding: 18px;
@@ -181,7 +180,8 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  font-weight: 600;
+  font-weight: 800;
+  color: #eaf0ff;
 }
 
 .resume-list {
@@ -195,17 +195,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #eaf0ff;
 }
 
 .resume-list .prog {
   padding-left: 1rem;
-  opacity: .7;
-}
-
-@media (max-width: 799px) {
-
-  .stats-grid,
-  .techs {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  opacity: .75;
 }

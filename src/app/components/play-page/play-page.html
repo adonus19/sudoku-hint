@@ -2,7 +2,7 @@
   @if (store.canFullAutoSolve()) {
   <div class="solve-strip">
     <button
-      class="ghost"
+      class="ghost ring"
       mat-stroked-button
       (click)="openSolveConfirm()"
     >
@@ -25,7 +25,7 @@
     <div class="cell right">
       <div class="hud-item time">{{ store.timerLabel() }}</div>
       <button
-        class="hud-item pause"
+        class="hud-item pause ring"
         mat-icon-button
         (click)="openPause()"
         aria-label="Pause"
@@ -38,18 +38,17 @@
   <div class="board-wrap">
     <app-board></app-board>
 
-    <!-- hide the fly-in during review mode -->
     @if (!store.reviewMode() && store.autoFillOfferVisible()) {
     <div class="under-board-layer">
       <div
-        class="auto-fill-flyin"
+        class="auto-fill-flyin card-glass"
         role="status"
         aria-live="polite"
         [class.closing]="closingAutoFill"
         (animationend)="onAutoFillAnimEnd($event)"
       >
         <button
-          class="cta"
+          class="cta btn-pill"
           mat-flat-button
           color="primary"
           (click)="store.autoFillRemaining()"
@@ -58,7 +57,7 @@
           <span>Finish last numbers</span>
         </button>
         <button
-          class="dismiss"
+          class="dismiss ring"
           mat-icon-button
           aria-label="Not now"
           (click)="dismissAutoFillFlyin()"
@@ -70,10 +69,9 @@
     }
   </div>
 
-  <!-- Start Solving bar (given mode only) -->
   @if (store.editingGivenMode()) {
   <div
-    class="start-bar"
+    class="start-bar card-glass"
     role="region"
     aria-label="Start solving"
   >
@@ -85,15 +83,13 @@
     <button
       mat-flat-button
       color="primary"
-      class="start-btn"
-      (click)="startSolving()
-      "
+      class="start-btn btn-pill"
+      (click)="startSolving()"
       [disabled]="!store.hasAnyValues() || store.conflicts().cells.size > 0"
     >Start</button>
   </div>
   }
 
-  <!-- Tools & keypad are hidden in review mode -->
   @if (!store.reviewMode()) {
   <div
     class="tools"
@@ -101,43 +97,39 @@
     aria-label="Board tools"
   >
     <button
-      class="tool ghost tool--reset"
+      class="tool pill ring tool--reset"
       type="button"
       (click)="store.resetPencils()"
       aria-label="Reset pencils"
     >
-      <mat-icon class="ic">layers_clear</mat-icon>
-      <span class="lbl">Reset Pencils</span>
+      <mat-icon class="ic">layers_clear</mat-icon><span class="lbl">Reset Pencils</span>
     </button>
 
     <button
-      class="tool ghost tool--undo"
+      class="tool pill ring tool--undo"
       type="button"
       (click)="undo()"
       aria-label="Undo"
     >
-      <mat-icon class="ic">undo</mat-icon>
-      <span class="lbl">Undo</span>
+      <mat-icon class="ic">undo</mat-icon><span class="lbl">Undo</span>
     </button>
 
     <button
-      class="tool ghost tool--erase"
+      class="tool pill ring tool--erase"
       type="button"
       (click)="erase()"
       aria-label="Erase"
     >
-      <mat-icon class="ic">backspace</mat-icon>
-      <span class="lbl">Erase</span>
+      <mat-icon class="ic">backspace</mat-icon><span class="lbl">Erase</span>
     </button>
 
     <button
-      class="tool ghost tool--pencil"
+      class="tool pill ring tool--pencil"
       type="button"
       (click)="togglePencil()"
       [attr.aria-pressed]="store.pencilMode()"
     >
-      <mat-icon class="ic">edit_note</mat-icon>
-      <span class="lbl">Pencil</span>
+      <mat-icon class="ic">edit_note</mat-icon><span class="lbl">Pencil</span>
       <span
         class="badge"
         [class.on]="store.pencilMode()"
@@ -145,26 +137,23 @@
     </button>
 
     <button
-      class="tool ghost tool--hint"
+      class="tool pill ring tool--hint"
       type="button"
       (click)="openHint()"
       aria-label="Hint"
     >
-      <mat-icon class="ic">lightbulb</mat-icon>
-      <span class="lbl">Hint</span>
+      <mat-icon class="ic">lightbulb</mat-icon><span class="lbl">Hint</span>
     </button>
   </div>
 
   <app-number-pad class="pad"></app-number-pad>
-
   <div
     class="ad-reserve"
     aria-hidden="true"
   ></div>
   } @else {
-  <!-- Review CTA replaces tools & keypad -->
   <div
-    class="review-cta"
+    class="review-cta card-glass"
     role="status"
     aria-live="polite"
   >
@@ -172,6 +161,7 @@
     <button
       mat-flat-button
       color="primary"
+      class="btn-pill"
       (click)="goDashboard()"
     >Go to Dashboard</button>
   </div>

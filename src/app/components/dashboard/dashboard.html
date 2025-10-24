@@ -1,14 +1,14 @@
 <div class="dash">
   @if (resumables().length) {
-  <mat-card class="resume">
+  <mat-card class="resume card-glass">
     <div class="resume-title">
-      <mat-icon>history</mat-icon>
-      <span>Resume</span>
+      <mat-icon>history</mat-icon><span>Resume</span>
     </div>
     <div class="resume-list">
       @for (r of resumables(); track $index) {
       <button
         mat-stroked-button
+        class="ring"
         (click)="resume(r)"
       >
         <mat-icon>{{ r.key.kind === 'generated' ? 'auto_awesome' : 'edit' }}</mat-icon>
@@ -20,7 +20,7 @@
   </mat-card>
   }
 
-  <mat-card class="hero">
+  <mat-card class="hero card-glass">
     <div class="title">
       <mat-icon>lightbulb</mat-icon>
       <div>
@@ -33,24 +33,28 @@
       <button
         mat-flat-button
         color="primary"
+        class="btn-pill"
         (click)="manualEntry()"
       >
         <mat-icon>edit</mat-icon>&nbsp;Manual Entry
       </button>
       <button
         mat-stroked-button
+        class="ring"
         (click)="importCsv()"
       >
         <mat-icon>file_upload</mat-icon>&nbsp;Import CSV
       </button>
       <button
         mat-stroked-button
+        class="ring"
         (click)="importPhoto()"
       >
         <mat-icon>photo_camera</mat-icon>&nbsp;Import Photo
       </button>
       <button
         mat-stroked-button
+        class="ring"
         (click)="generatePuzzle()"
       >
         <mat-icon>auto_awesome</mat-icon>&nbsp;Generate Puzzle
@@ -59,7 +63,7 @@
   </mat-card>
 
   <!-- Future: stats cards (placeholders) -->
-  <div class="dash-card stats">
+  <div class="dash-card stats card-glass">
     <div class="stats-header">
       <h3>Session Stats</h3>
       <div class="totals">
