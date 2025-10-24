@@ -118,4 +118,10 @@ export class PlayPage {
       this.store.dismissAutoFillOffer();
     }
   }
+
+  goDashboard() {
+    // If your store exposes a way to leave review mode, call it; optional chaining avoids build errors.
+    this.store.exitReviewToDashboard();
+    this.router.navigate(['/dashboard']);
+  }
 }

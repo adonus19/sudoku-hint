@@ -232,6 +232,46 @@
   animation: toastOut 700ms ease-in forwards;
 }
 
+.review-cta,
+.tools,
+.pad {
+  max-width: 680px;
+  margin: 10px auto 0;
+  padding-inline: 12px;
+}
+
+.review-cta {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  padding: 14px 12px 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .65);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .08), inset 0 0 0 1px rgba(0, 0, 0, .06);
+}
+
+.review-cta .badge {
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #1b5e20;
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+}
+
+@media (max-width: 599px) {
+
+  .review-cta,
+  .tools,
+  .pad {
+    max-width: 100%;
+    padding-inline: 8px;
+  }
+}
+
 /* Enter / exit animations */
 @keyframes toastIn {
   from {

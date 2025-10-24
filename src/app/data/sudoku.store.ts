@@ -791,11 +791,7 @@ export class SudokuStore {
   }
 
   clearCurrentActive() {
-    const key = this._activeKey();
-    if (!key) return;
-    if (key.kind === 'generated') this.clearActiveGenerated(key.difficulty);
-    else this.clearActiveCustom();
-    this._activeKey.set(null);
+    this.clearAnyActive();
   }
 
   getResumables(): ResumableItem[] {
@@ -923,6 +919,8 @@ export class SudokuStore {
   beginReviewFromLastSolved(): boolean {
     if (!this._lastSolvedSnap) return false;
 
+    this.clearAnyActive();
+
     // restore the exact solved board
     this._board.set(this.cloneBoard(this._lastSolvedSnap));
     this._selected.set(null);
@@ -936,8 +934,9 @@ export class SudokuStore {
     return true;
   }
 
-  endReview() {
+  exitReviewToDashboard() {
     this._reviewMode.set(false);
+    this.clearAnyActive();   // <— ensure no resumable remains
   }
 
   private progressOf(serialized: any): number {
@@ -1270,7 +1269,7 @@ export class SudokuStore {
     });
 
     this._lastSolvedSnap = this.cloneBoard(this._board());
-    this.clearCurrentActive(); // clear active on solve
+    this.clearAnyActive();
   }
 
   private serializeStats(s: Record<Bucket, DiffStats>) {
@@ -1418,5 +1417,23 @@ export class SudokuStore {
       suppressed: new Set<number>(),
       manualCands: new Set<number>()
     }))) as Board;
+  }
+
+  private clearAnyActive() {
+    const k = this._activeKey() ?? this._activeStore.active;
+    if (!k) {
+      // still make sure the pointer is reset
+      this._activeStore.active = null;
+      this.saveActiveStore();
+      return;
+    }
+    if (k.kind === 'generated') {
+      if (this._activeStore.generated) this._activeStore.generated[k.difficulty] = null as any;
+    } else {
+      this._activeStore.custom = null;
+    }
+    this._activeKey.set(null);
+    this._activeStore.active = null;
+    this.saveActiveStore();
   }
 }

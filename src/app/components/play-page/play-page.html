@@ -38,7 +38,8 @@
   <div class="board-wrap">
     <app-board></app-board>
 
-    @if (store.autoFillOfferVisible()) {
+    <!-- hide the fly-in during review mode -->
+    @if (!store.reviewMode() && store.autoFillOfferVisible()) {
     <div class="under-board-layer">
       <div
         class="auto-fill-flyin"
@@ -69,8 +70,7 @@
     }
   </div>
 
-
-  <!-- Start Solving bar (visible only during given mode) -->
+  <!-- Start Solving bar (given mode only) -->
   @if (store.editingGivenMode()) {
   <div
     class="start-bar"
@@ -79,26 +79,22 @@
   >
     <div class="msg">
       Setup mode — tap Start when you’ve finished entering givens.
-      @if (!store.hasAnyValues()) {
-      <span class="warn">Please enter at least one value to begin.</span>
-      }
-      @if (store.conflicts().cells.size) {
-      <span class="warn">There are conflicts in the givens.</span>
-      }
+      @if (!store.hasAnyValues()) { <span class="warn">Please enter at least one value to begin.</span> }
+      @if (store.conflicts().cells.size) { <span class="warn">There are conflicts in the givens.</span> }
     </div>
     <button
       mat-flat-button
       color="primary"
       class="start-btn"
-      (click)="startSolving()"
+      (click)="startSolving()
+      "
       [disabled]="!store.hasAnyValues() || store.conflicts().cells.size > 0"
-    >
-      Start
-    </button>
+    >Start</button>
   </div>
   }
 
-  <!-- NEW: tools row under board, above keypad -->
+  <!-- Tools & keypad are hidden in review mode -->
+  @if (!store.reviewMode()) {
   <div
     class="tools"
     role="toolbar"
@@ -157,7 +153,6 @@
       <mat-icon class="ic">lightbulb</mat-icon>
       <span class="lbl">Hint</span>
     </button>
-
   </div>
 
   <app-number-pad class="pad"></app-number-pad>
@@ -166,5 +161,19 @@
     class="ad-reserve"
     aria-hidden="true"
   ></div>
-
+  } @else {
+  <!-- Review CTA replaces tools & keypad -->
+  <div
+    class="review-cta"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="badge">Review mode — read-only</div>
+    <button
+      mat-flat-button
+      color="primary"
+      (click)="goDashboard()"
+    >Go to Dashboard</button>
+  </div>
+  }
 </div>
