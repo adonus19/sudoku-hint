@@ -14,6 +14,7 @@ import { NumberPad } from '../../controls/number-pad/number-pad';
 import { HintService } from '../../hint/hint.service';
 import { HintDialog } from '../hint-dialog/hint-dialog';
 import { HintSheet } from '../hint-sheet/hint-sheet';
+import { PauseDialog } from '../pause-dialog/pause-dialog';
 
 @Component({
   selector: 'app-play-page',
@@ -56,6 +57,40 @@ export class PlayPage {
         position: { right: '16px', bottom: '16px' }, panelClass: ['hint-dialog-floating'], data: hint
       });
     }
+  }
+
+  openPause() {
+    this.store.pauseGame();
+    // const ref = this.#dialog.open(PauseDialog, {
+    //   panelClass: ['pause-dialog'],
+    //   backdropClass: ['pause-backdrop'],
+    //   disableClose: true,
+    //   width: 'min(520px, 90vw)',
+    //   maxWidth: '96vw',
+    //   maxHeight: '90vh'
+    // });
+
+    const ref = this.#dialog.open(PauseDialog, {
+      autoFocus: false,
+      restoreFocus: true,
+      hasBackdrop: true,
+      panelClass: ['pause-dialog', 'frosted-dialog'],
+      backdropClass: ['glass-backdrop'],
+      disableClose: true,
+      width: 'min(520px, 90vw)',
+      maxWidth: '96vw',
+      maxHeight: '90vh'
+    });
+
+    ref.afterClosed().subscribe(action => {
+      if (action === 'quit') {
+        // optional: persist the snapshot here if you want
+        // this.store.persistActive();
+        this.router.navigate(['/dashboard']);
+      } else {
+        // resume handled in dialog; nothing else to do
+      }
+    });
   }
 
   erase() {

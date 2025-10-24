@@ -1,0 +1,28 @@
+<div class="pause">
+  <div class="content">
+    <h2>Paused</h2>
+
+    <div class="stats">
+      <div><span>Difficulty</span><b>{{ (stats().difficulty || 'easy') | titlecase }}</b></div>
+      <div><span>Time</span><b>{{ stats().timeLabel }}</b></div>
+      <div><span>Score</span><b>{{ stats().score | number }}</b></div>
+      <div><span>Hints</span><b>{{ stats().hintsUsed }}</b></div>
+      <div><span>Mistakes</span><b>{{ stats().mistakes }} <small *ngIf="stats().mistakePoints">(-{{
+            stats().mistakePoints
+            }})</small></b></div>
+      <div><span>Progress</span><b>{{ stats().filled }}/{{ stats().total }}</b></div>
+    </div>
+
+    <div class="actions">
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="resume()"
+      >Resume</button>
+      <button
+        mat-stroked-button
+        (click)="quit()"
+      >Quit</button>
+    </div>
+  </div>
+</div>

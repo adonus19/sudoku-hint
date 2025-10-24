@@ -1,0 +1,49 @@
+ .pause {
+   box-sizing: border-box;
+   padding: 20px 22px;
+   width: min(480px, 92vw);
+   max-height: min(90vh, 680px);
+   min-height: max(70vh, 200px);
+   overflow: auto;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+ }
+
+ .content {
+   width: 100%;
+   max-height: 100%;
+ }
+
+ h2 {
+   margin: 0 0 14px;
+   font-weight: 700;
+ }
+
+ .stats {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 10px 16px;
+   margin-bottom: 16px;
+ }
+
+ .stats div {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+ }
+
+ .stats span {
+   color: rgba(0, 0, 0, .62);
+ }
+
+ .stats b {
+   font-weight: 700;
+   color: rgba(0, 0, 0, .88);
+ }
+
+ .actions {
+   display: flex;
+   justify-content: flex-end;
+   gap: 10px;
+ }

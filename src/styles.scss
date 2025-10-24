@@ -1,4 +1,3 @@
-
 // Include theming for Angular Material with `mat.theme()`.
 // This Sass mixin will define CSS variables that are used for styling Angular Material
 // components according to the Material 3 design spec.
@@ -7,15 +6,13 @@
 @use '@angular/material' as mat;
 
 html {
-  @include mat.theme((
-    color: (
-      primary: mat.$cyan-palette,
-      accent: mat.$orange-palette,
-      warn: mat.$red-palette,
-    ),
-    typography: Roboto,
-    density: 0,
-  ));
+  @include mat.theme((color: (primary: mat.$cyan-palette,
+        accent: mat.$orange-palette,
+        warn: mat.$red-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    ));
 }
 
 body {
@@ -34,10 +31,18 @@ body {
   // Reset the user agent margin.
   margin: 0;
 }
+
 /* You can add global styles to this file, and also import other style files */
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
 
 .hint-dialog-floating {
   box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
@@ -93,4 +98,43 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 .photo-dialog .mat-mdc-dialog-actions {
   padding: 8px 16px 16px;
+}
+
+.cdk-overlay-backdrop .cdk-global-overlay-wrapper {
+  z-index: 12000 !important;
+}
+
+// .pause-backdrop {
+//   background: rgba(0, 0, 0, .55) !important;
+// }
+
+// .glass-backdrop {
+//   background: rgba(15, 23, 42, 0.35);
+//   /* slate-ish w/ alpha */
+//   // backdrop-filter: blur(12px) saturate(110%);
+//   // -webkit-backdrop-filter: blur(12px) saturate(110%);
+//   /* iOS Safari */
+// }
+
+/* “Frosted” dialog surface */
+.frosted-dialog .mat-mdc-dialog-surface {
+  background: rgba(255, 255, 255, 0.65);
+  /* semi-opaque glass */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+/* Optional: round the dialog a bit for the iOS vibe */
+.frosted-dialog .mat-mdc-dialog-surface {
+  border-radius: 16px;
+}
+
+/* Optional fallback for browsers without backdrop-filter:
+   while paused, also blur the board itself. */
+body.paused .board {
+  filter: blur(8px) saturate(90%);
+  pointer-events: none;
 }

@@ -1,11 +1,25 @@
 <div class="play-wrap safe-bottom">
   <div class="hud">
-    <div
-      class="hud-item score"
-      [class.bump]="store.scoreBump()"
-    >{{ store.score() }}</div>
-    <div class="hud-item diff">{{ (store.rating()?.bucket || '—') | titlecase }}</div>
-    <div class="hud-item time">{{ store.timerLabel() }}</div>
+    <div class="cell left">
+      <div
+        class="hud-item score"
+        [class.bump]="store.scoreBump()"
+      >{{ store.score() }}</div>
+    </div>
+    <div class="cell center">
+      <div class="hud-item diff">{{ (store.rating()?.bucket || '—') | titlecase }}</div>
+    </div>
+    <div class="cell right">
+      <div class="hud-item time">{{ store.timerLabel() }}</div>
+      <button
+        class="hud-item pause"
+        mat-icon-button
+        (click)="openPause()"
+        aria-label="Pause"
+      >
+        <mat-icon>pause</mat-icon>
+      </button>
+    </div>
   </div>
 
   <!-- REMOVE the old .controls block entirely -->

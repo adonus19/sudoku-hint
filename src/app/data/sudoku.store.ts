@@ -90,6 +90,7 @@ export class SudokuStore {
   private _mistakes = signal<number>(0);
   private _mistakePoints = signal<number>(0);
   private _stats = signal<Record<Bucket, DiffStats>>(emptyStats());
+  private _paused = signal<boolean>(false);
 
   // difficulty context (for multiplier)
   private _currentDifficulty = signal<Difficulty>('easy');
@@ -156,6 +157,7 @@ export class SudokuStore {
 
   // HUD
   score = computed(() => this._scoreShown());
+  paused = this._paused.asReadonly();
   timerLabel = computed(() => {
     const s = this._timerSec();
     const m = Math.floor(s / 60);
@@ -191,6 +193,29 @@ export class SudokuStore {
       medium: toPlain(s.medium),
       hard: toPlain(s.hard),
       expert: toPlain(s.expert),
+    };
+  });
+
+  gameStats = computed(() => {
+    // filled cells (values only)
+    let filled = 0, givens = 0;
+    const b = this._board();
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = b[r][c];
+      if (cell.value) filled++;
+      if (cell.given) givens++;
+    }
+    return {
+      difficulty: this._rating()?.bucket ?? this._currentDifficulty(),
+      timeLabel: this.timerLabel(),
+      timeSec: this._timerSec(),
+      score: this._scoreRaw(),
+      hintsUsed: this._hintsUsed(),
+      mistakes: this._mistakes(),
+      mistakePoints: this._mistakePoints(),
+      filled,
+      givens,
+      total: 81
     };
   });
 
@@ -270,6 +295,7 @@ export class SudokuStore {
     this._hl.set(null);
     this._solution.set(null);
     this.resetTimer();
+    this._paused.set(false);
     this._scoreRaw.set(0);
     this._scoreShown.set(0);
     this._scored.clear();
@@ -543,6 +569,7 @@ export class SudokuStore {
       this._lastSolved.set(null);
       this._mistakes.set(0);
       this._mistakePoints.set(0);
+      this._paused.set(false);
       this.recomputeCandidates();
       this.computeSolutionFromGivens?.();
 
@@ -780,6 +807,18 @@ export class SudokuStore {
     await this.loadSnapshot(snap);
     this._activeKey.set({ kind: 'custom', origin: snap.key.origin });
     return true;
+  }
+
+  pauseGame() {
+    if (this._paused()) return;
+    this._paused.set(true);
+    this.pauseTimer(); // already in your store
+  }
+
+  resumeGame() {
+    if (!this._paused()) return;
+    this._paused.set(false);
+    this.resumeTimer(); // already in your store
   }
 
   private progressOf(serialized: any): number {

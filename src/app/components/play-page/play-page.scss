@@ -14,12 +14,26 @@
 
 .hud {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   /* score • diff • time */
   align-items: center;
   gap: 8px;
   font-weight: 200;
   color: rgba(0, 0, 0, .6);
+}
+
+.hud .cell.left,
+.hud .cell.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hud .cell.right {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
 }
 
 /* animated score bump (bind class on the HUD element) */
