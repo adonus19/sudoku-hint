@@ -55,6 +55,10 @@ export class HintService {
     const chc = this.crossHatchingColumn(b);
     if (chc) return chc;
 
+    // 6.6) Cross-Hatching (Row)
+    const chr = this.crossHatchingRow(b);
+    if (chr) return chr;
+
     // 7) Swordfish (rows, then cols)
     const sfRow = this.swordfish(b, 'row');
     if (sfRow) return sfRow;
@@ -84,6 +88,10 @@ export class HintService {
     // 12) XYZ-Wing
     const xyz = this.xyzWing(b);
     if (xyz) return xyz;
+
+    // 13) XY-Chain
+    const xyChain = this.xyChain(b);
+    if (xyChain) return xyChain;
 
     return null;
   }
@@ -496,6 +504,127 @@ export class HintService {
           ];
           return {
             kind: 'Cross Hatching (Column)',
+            digit: d,
+            target: spots[0],
+            steps,
+            apply: (b) => removeCandidates(b, eliminations)
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+ * Cross Hatching (Row):
+ * In a band (3 horizontally aligned boxes), if the other two boxes place digit d
+ * in two different relative rows, then in the remaining box, d must be in
+ * the third row. This yields either a placement (1 cell) or pointing elim.
+ */
+  private crossHatchingRow(board: Board): HintResult | null {
+    // helper: get all placed cells for digit d in a box
+    const placedInBox = (box: number, d: number): Array<{ r: number; c: number }> => {
+      const cells: Array<{ r: number; c: number }> = [];
+      for (const { r, c } of boxCells(box)) if (board[r][c].value === d) cells.push({ r, c });
+      return cells;
+    };
+
+    // iterate bands (rows grouped by 3): s = 0 (rows 0..2), 1 (3..5), 2 (6..8)
+    for (let s = 0; s < 3; s++) {
+      const bandBoxes = [s * 3 + 0, s * 3 + 1, s * 3 + 2]; // left→right boxes in this band
+      const baseRow = s * 3;
+
+      for (const B of bandBoxes) {
+        const others = bandBoxes.filter(x => x !== B);
+        const br = Math.floor(B / 3) * 3;
+        const bc = (B % 3) * 3;
+
+        for (let d = 1; d <= 9; d++) {
+          // look for *placed* d in the two other boxes
+          const p1 = placedInBox(others[0], d);
+          const p2 = placedInBox(others[1], d);
+          if (p1.length !== 1 || p2.length !== 1) continue; // need a single fixed d in each
+
+          const relR1 = p1[0].r % 3;
+          const relR2 = p2[0].r % 3;
+          if (relR1 === relR2) continue; // they must block two *different* relative rows
+
+          // infer remaining relative row in target box B
+          const blocked = new Set([relR1, relR2]);
+          const relCandidates = [0, 1, 2].filter(rr => !blocked.has(rr));
+          if (relCandidates.length !== 1) continue;
+          const rr = relCandidates[0];
+          const globalRow = baseRow + rr;
+
+          // candidate cells in target box B on that row
+          const spots: Array<{ r: number; c: number }> = [];
+          const r = globalRow;
+          for (let c = bc; c < bc + 3; c++) {
+            const cell = board[r][c];
+            if (!cell.value && cell.candidates.has(d)) spots.push({ r, c });
+          }
+          if (spots.length === 0) continue;
+
+          // Case A: single spot → placement
+          if (spots.length === 1) {
+            const { r, c } = spots[0];
+            const steps: HintStep[] = [
+              {
+                title: `Cross Hatching (Row) on ${d}`,
+                message: `In band rows ${baseRow + 1}–${baseRow + 3}, the other two boxes already place ${d} in rows ${relR1 + baseRow + 1} and ${relR2 + baseRow + 1}. So in box ${B + 1}, ${d} must be in row ${globalRow + 1}.`,
+                highlight: {
+                  boxes: [others[0], others[1], B],
+                  rows: [globalRow],
+                  cells: [p1[0], p2[0]],
+                  candTargets: [{ r, c, d }]
+                }
+              },
+              {
+                title: `Only one cell in box ${B + 1}`,
+                message: `${d} fits only at ${coord(r, c)}.`,
+                highlight: { boxes: [B], rows: [globalRow], cells: [{ r, c }], candTargets: [{ r, c, d }] }
+              }
+            ];
+            return {
+              kind: 'Cross Hatching (Row)',
+              digit: d,
+              target: { r, c },
+              steps,
+              apply: (b) => setValueKeepCands(b, r, c, d)
+            };
+          }
+
+          // Case B: multiple spots → pointing elim in the row outside the box
+          const eliminations: Array<{ r: number; c: number; d: number }> = [];
+          for (let c = 0; c < 9; c++) {
+            // outside the target box columns (i.e., not c ∈ [bc..bc+2])
+            if (c >= bc && c < bc + 3) continue;
+            const cell = board[globalRow][c];
+            if (!cell.value && cell.candidates.has(d)) eliminations.push({ r: globalRow, c, d });
+          }
+          if (!eliminations.length) continue;
+
+          const steps: HintStep[] = [
+            {
+              title: `Cross Hatching (Row) on ${d}`,
+              message: `In band rows ${baseRow + 1}–${baseRow + 3}, ${d} is fixed in rows ${relR1 + baseRow + 1} and ${relR2 + baseRow + 1} of the other two boxes, so in box ${B + 1} ${d} must be in row ${globalRow + 1}.`,
+              highlight: {
+                boxes: [others[0], others[1], B],
+                rows: [globalRow],
+                cells: [p1[0], p2[0]],
+                candTargets: spots.map(s => ({ r: s.r, c: s.c, d }))
+              }
+            },
+            {
+              title: `Eliminate ${d} from row ${globalRow + 1} outside box ${B + 1}`,
+              message: `Remove ${d} from: ${eliminations.map(e => coord(e.r, e.c)).join(', ')}.`,
+              highlight: { rows: [globalRow], boxes: [B], candTargets: eliminations }
+            }
+          ];
+
+          return {
+            kind: 'Cross Hatching (Row)',
             digit: d,
             target: spots[0],
             steps,
@@ -997,6 +1126,164 @@ export class HintService {
         ];
 
         return { kind: 'XYZ-Wing', digit: Z, target: { r: P.r, c: P.c }, steps, apply: (b) => removeCandidates(b, elim) };
+      }
+    }
+
+    return null;
+  }
+
+  /** XY-Chain
+ * Chain of *bi-value* cells where adjacent cells share exactly one digit and see each other.
+ * If a chain starts on digit X and ends on digit X (endpoints distinct), then any cell that
+ * sees BOTH endpoints cannot be X.
+ *
+ * We search alternating chains up to a modest depth (to keep it quick).
+ */
+  private xyChain(board: Board): HintResult | null {
+    // --- peers helper (cached) ---
+    const peersCache = new Map<string, Set<string>>();
+    const peersOf = (r: number, c: number): Set<string> => {
+      const k = `${r},${c}`;
+      if (peersCache.has(k)) return peersCache.get(k)!;
+      const s = new Set<string>();
+      for (let i = 0; i < 9; i++) { if (i !== c) s.add(`${r},${i}`); if (i !== r) s.add(`${i},${c}`); }
+      const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+      for (let rr = br; rr < br + 3; rr++) for (let cc = bc; cc < bc + 3; cc++) { if (rr === r && cc === c) continue; s.add(`${rr},${cc}`); }
+      peersCache.set(k, s);
+      return s;
+    };
+
+    // collect all bi-value cells
+    type Node = { id: number; r: number; c: number; pair: [number, number] };
+    const nodes: Node[] = [];
+    let nid = 0;
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      const cell = board[r][c];
+      if (cell.value) continue;
+      const cand = Array.from(cell.candidates);
+      if (cand.length === 2) nodes.push({ id: nid++, r, c, pair: cand.sort((a, b) => a - b) as [number, number] });
+    }
+    if (nodes.length < 2) return null;
+
+    // quick peer-test
+    const arePeers = (a: Node, b: Node) =>
+      a.r === b.r || a.c === b.c || inBox(a.r, a.c) === inBox(b.r, b.c);
+
+    // other digit in the cell
+    const other = (n: Node, d: number) => (n.pair[0] === d ? n.pair[1] : (n.pair[1] === d ? n.pair[0] : null));
+
+    // DFS over states (node, activeDigitPresentInNode)
+    const MAX_DEPTH = 9; // safe & fast
+    const seen = new Set<string>();
+
+    type State = { node: Node; d: number }; // "d is present in node"
+    const key = (n: Node, d: number) => `${n.id}|${d}`;
+
+    // Build a human-readable chain string like A(XY)–B(YZ)–C(ZX)
+    const chainLabel = (chain: { node: Node; inDigit: number }[]) =>
+      chain.map(({ node, inDigit }) => {
+        const o = other(node, inDigit)!;
+        // show the pair with the 'inDigit' first to make alternation visible
+        return `${coord(node.r, node.c)}(${inDigit}${o})`;
+      }).join(' – ');
+
+    // victims for endpoints with digit X
+    const victimsOf = (A: Node, B: Node, X: number, usedNodes: Set<string>) => {
+      const meet = intersectKeys(peersOf(A.r, A.c), peersOf(B.r, B.c));
+      meet.delete(`${A.r},${A.c}`); meet.delete(`${B.r},${B.c}`);
+      const elim: Array<{ r: number; c: number; d: number }> = [];
+      for (const k of meet) {
+        if (usedNodes.has(k)) continue; // never eliminate inside the chain
+        const [er, ec] = k.split(',').map(Number);
+        const cell = board[er][ec];
+        if (!cell.value && cell.candidates.has(X)) elim.push({ r: er, c: ec, d: X });
+      }
+      return elim;
+    };
+
+    // DFS from a start node with a chosen start digit X
+    const searchFrom = (start: Node, X: number): HintResult | null => {
+      const stack: Array<{ node: Node; d: number; depth: number; path: Array<{ node: Node; inDigit: number }> }> = [];
+      stack.push({ node: start, d: X, depth: 0, path: [{ node: start, inDigit: X }] });
+      seen.add(key(start, X));
+
+      while (stack.length) {
+        const cur = stack.pop()!;
+        // switch to the other digit (strong link within the cell)
+        const sw = other(cur.node, cur.d);
+        if (sw == null) continue;
+
+        // explore neighbors that share this switched digit and are peers
+        for (const nb of nodes) {
+          if (nb.id === cur.node.id) continue;
+          if (!arePeers(cur.node, nb)) continue;
+          if (!board[nb.r][nb.c].candidates.has(sw)) continue;
+
+          // next state: at neighbor, active digit is sw
+          const nxtKey = key(nb, sw);
+          const nextPath = [...cur.path, { node: nb, inDigit: sw }];
+
+          // End condition: endpoints have same digit X and are distinct cells, depth >= 1
+          if (sw === X && nb.id !== start.id && cur.depth + 1 >= 1) {
+            const used = new Set<string>(nextPath.map(p => `${p.node.r},${p.node.c}`));
+            const elim = victimsOf(start, nb, X, used);
+            if (!elim.length) continue;
+
+            // Build highlights: every chain cell shows its two candidates; endpoints emphasize X
+            const chainCandTargets: Array<{ r: number; c: number; d: number }> = [];
+            for (const p of nextPath) {
+              chainCandTargets.push({ r: p.node.r, c: p.node.c, d: p.inDigit });
+              chainCandTargets.push({ r: p.node.r, c: p.node.c, d: other(p.node, p.inDigit)! });
+            }
+
+            const steps: HintStep[] = [
+              {
+                title: `XY-Chain on ${X}`,
+                message: `Chain ends share digit ${X}.`,
+                highlight: {
+                  cells: nextPath.map(p => ({ r: p.node.r, c: p.node.c })),
+                  candTargets: [
+                    { r: start.r, c: start.c, d: X },
+                    { r: nb.r, c: nb.c, d: X }
+                  ]
+                }
+              },
+              {
+                title: `Chain`,
+                message: chainLabel(nextPath),
+                highlight: { cells: nextPath.map(p => ({ r: p.node.r, c: p.node.c })), candTargets: chainCandTargets }
+              },
+              {
+                title: `Eliminate ${X}`,
+                message: `Remove ${X} from cells that see both endpoints (${coord(start.r, start.c)} and ${coord(nb.r, nb.c)}): ${uniq(elim.map(e => coord(e.r, e.c))).join(', ')}.`,
+                highlight: { candTargets: elim }
+              }
+            ];
+
+            return {
+              kind: 'XY-Chain',
+              digit: X,
+              target: { r: start.r, c: start.c },
+              steps,
+              apply: (b) => removeCandidates(b, elim)
+            };
+          }
+
+          // continue DFS if not too deep
+          if (cur.depth + 1 < MAX_DEPTH && !seen.has(nxtKey)) {
+            seen.add(nxtKey);
+            stack.push({ node: nb, d: sw, depth: cur.depth + 1, path: nextPath });
+          }
+        }
+      }
+      return null;
+    };
+
+    // try every node as a start with both of its digits
+    for (const n of nodes) {
+      for (const X of n.pair) {
+        const res = searchFrom(n, X);
+        if (res) return res;
       }
     }
 

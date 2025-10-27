@@ -58,8 +58,8 @@ export function ratePuzzle(start: Board): DifficultyRating {
 }
 
 function mapToBucket(by: Record<string, number>, steps: number, solved: boolean): Bucket {
-  const hardish = sum(by, ['Swordfish', 'Jellyfish', 'Skyscraper', 'XY-Wing', 'W-Wing', 'XYZ-Wing', 'BUG']);
-  const mediumish = sum(by, ['Locked Candidates', 'Hidden Pair', 'Naked Pair']);
+  const hardish = sum(by, ['Swordfish', 'Jellyfish', 'Skyscraper', 'XY-Wing', 'W-Wing', 'XYZ-Wing', 'XY-Chain', 'BUG']);
+  const mediumish = sum(by, ['Locked Candidates', 'Hidden Pair', 'Naked Pair', 'Cross Hatching (Column)', 'Cross Hatching (Row)']);
   const singles = sum(by, ['Naked Single', 'Hidden Single']);
 
   if (!solved) return 'expert'; // needs guessing beyond our human set

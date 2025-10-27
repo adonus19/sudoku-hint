@@ -17,7 +17,7 @@ export interface HintStep {
 }
 
 export type HintKind = 'Naked Single' | 'Hidden Single' | 'Locked Candidates' | 'Naked Pair' | 'Hidden Pair' | 'XY-Wing' | 'Swordfish' | 'Skyscraper' | 'BUG' | 'Jellyfish'
-  | 'XYZ-Wing' | 'W-Wing' | 'Cross Hatching (Column)';
+  | 'XYZ-Wing' | 'XY-Chain' | 'W-Wing' | 'Cross Hatching (Column)' | 'Cross Hatching (Row)';
 
 export interface HintResult {
   kind: HintKind;

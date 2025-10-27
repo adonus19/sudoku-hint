@@ -1,512 +1,508 @@
- :host {
-   --cell: clamp(36px, 9.8vw, 56px);
-   --label: 18px;
-   --gap: 4px;
-   display: block;
- }
-
- @media (max-width: 599px) {
-   :host {
-     --cell: clamp(33px, 10.2vw, 50px);
-     /* a bit larger, still safe */
-     --label: 12px;
-     --gap: 2px;
-   }
-
-   .board-outer {
-     max-width: 100%;
-     overflow: hidden;
-   }
- }
-
- /* NEW: center wrapper */
- .board-outer {
-   display: inline-block;
-   max-width: 100%;
-   margin: 0 auto;
-   position: relative;
-   overflow: hidden;
- }
-
- .loading-overlay {
-   position: absolute;
-   inset: 0;
-   display: grid;
-   place-items: center;
-   gap: 8px;
-   background: rgba(255, 255, 255, 0.75);
-   z-index: 2;
-   text-align: center;
-   pointer-events: all;
-   /* consume clicks while busy */
- }
-
- .loading-overlay .txt {
-   font-size: 14px;
-   color: rgba(0, 0, 0, .7);
- }
-
- .board-outer:has(.loading-overlay) .board {
-   filter: grayscale(0.2) opacity(0.7);
- }
-
- .col-labels {
-   display: grid;
-   grid-template-columns: calc(var(--label) + var(--gap)) repeat(9, var(--cell));
-   margin-bottom: var(--gap);
- }
-
- .col-label {
-   display: grid;
-   /* NEW */
-   place-items: center;
-   /* NEW: vertical centering */
-   height: var(--label);
-   line-height: 1;
- }
-
- .corner {
-   width: calc(var(--label) + var(--gap));
- }
-
- .row {
-   display: flex;
- }
-
- .row-labels {
-   display: grid;
-   grid-auto-rows: var(--cell);
-   width: calc(var(--label) + var(--gap));
-   margin-right: var(--gap);
- }
-
- .row-label {
-   display: grid;
-   /* NEW */
-   place-items: center;
-   /* NEW */
-   height: var(--cell);
- }
-
- .board {
-   position: relative;
-   /* was: overflow: hidden; */
-   overflow: visible;
-   /* why: prevent clipping for point floaters near edges */
-   width: min(calc(9 * var(--cell)), 100%);
-   margin-inline: auto;
- }
-
- /* Cells/pencils (unchanged below) */
- .cell {
-   width: var(--cell);
-   height: var(--cell);
-   /* <— instead of aspect-ratio */
-   /* aspect-ratio: 1/1;  <-- remove if present */
-   padding: 0;
-   border: 1px solid rgba(0, 0, 0, .25);
-   background: white;
-   cursor: pointer;
-   display: grid;
-   place-items: center;
-   font-size: calc(var(--cell) * 0.44);
-   /* keep your larger number sizing */
-   line-height: 1;
-   position: relative;
-   box-sizing: border-box;
-   contain: size layout paint;
-   /* <— isolates layout so inner changes don't reflow the row */
- }
-
- .cell .val {
-   font-weight: 500;
-   font-size: calc(var(--cell) * 0.52);
- }
-
- .pencil {
-   width: 100%;
-   height: 100%;
-   display: grid;
-   grid-template-columns: repeat(3, 1fr);
-   grid-template-rows: repeat(3, 1fr);
-   place-items: center;
-   font-size: calc(var(--cell) * 0.28);
-   color: rgba(0, 0, 0, .38);
-   padding: 0;
- }
-
- .p {
-   display: grid;
-   /* NEW: keeps glyph perfectly centered */
-   place-items: center;
-   /* NEW */
-   padding: 0;
-   opacity: 0;
-   border-radius: 2px;
-   user-select: none;
-   pointer-events: none;
- }
-
- .p.on {
-   opacity: 1;
-   padding: 1px;
- }
-
- .p.cand-match {
-   background: rgba(25, 118, 210, .45);
-   color: rgba(0, 0, 0, .85);
-   font-weight: 600;
- }
-
- .p.cand-hint {
-   background: rgba(255, 193, 7, .35) !important;
-   color: rgba(0, 0, 0, .95);
-   font-weight: 700;
- }
-
- /* Thick box borders */
- .board .grid .row:nth-child(3n+1) .cell {
-   border-top-width: 2px;
-   border-top-color: rgba(0, 0, 0, .5);
- }
-
- .board .grid .row .cell:nth-child(3n+1) {
-   border-left-width: 2px;
-   border-left-color: rgba(0, 0, 0, .5);
- }
-
- .board .grid .row:nth-child(9) .cell {
-   border-bottom-width: 2px;
-   border-bottom-color: rgba(0, 0, 0, .5);
- }
-
- .board .grid .row .cell:nth-child(9) {
-   border-right-width: 2px;
-   border-right-color: rgba(0, 0, 0, .5);
- }
-
- .cell.given .val {
-   font-weight: 700;
-   color: rgba(0, 0, 0, .87);
- }
-
- .cell.user .val {
-   color: var(--mat-mdc-slide-toggle-selected-handle-color, #3f51b5);
- }
-
- .cell.selected {
-   outline: 2px solid rgba(25, 118, 210, .9);
-   outline-offset: -2px;
- }
-
- .cell.hl-row,
- .cell.hl-col,
- .cell.hl-box {
-   background: rgba(25, 118, 210, .08);
- }
-
- .cell.hl-row.hl-col,
- .cell.hl-row.hl-box,
- .cell.hl-col.hl-box {
-   background: rgba(25, 118, 210, .14);
- }
-
- .board .cell.hint-row,
- .board .cell.hint-col,
- .board .cell.hint-box {
-   background: rgba(255, 193, 7, .18) !important;
- }
-
- .board .cell.hint-target {
-   box-shadow: inset 0 0 0 3px rgba(255, 193, 7, .95) !important;
- }
-
- .cell:disabled {
-   background: #fafafa;
-   cursor: default;
- }
-
- .cell.conflict {
-   box-shadow: inset 0 0 0 2px rgba(211, 47, 47, .9);
- }
-
- .cell.conflict .val {
-   color: rgba(211, 47, 47, 1);
- }
-
- .cell.error {
-   box-shadow: inset 0 0 0 2px rgba(211, 47, 47, .9);
- }
-
- .cell.error .val {
-   color: rgba(211, 47, 47, 1);
-   font-weight: 700;
- }
-
- .cell.readonly {
-   background: #f5f5f5;
-   cursor: default;
- }
-
- .cell.readonly .val {
-   color: rgba(0, 0, 0, .7);
-   font-weight: 700;
- }
-
- /* Optional: reduce left gutter when labels hidden (keeps grid centered) */
- .labels-off .row {
-   margin-left: 0;
- }
-
- .difficulty-label {
-   margin: 6px 0 8px;
-   font-weight: 600;
-   color: rgba(0, 0, 0, .72);
-   text-align: center;
- }
-
- /* Initial top→bottom reveal for numbers */
- .board.reveal .val {
-   opacity: 0;
-   transform: translateY(-6px);
-   animation: valReveal .42s ease-out forwards;
-   animation-delay: calc(var(--r) * 80ms);
-   /* top→bottom */
- }
-
- /* Unit completion flash: wave from the last entered cell */
- .cell.unit-flash {
-   position: relative;
-   overflow: visible;
-   /* why: don't clip the points floater leaving the cell */
-   z-index: 1;
- }
-
- .cell.unit-flash::after {
-   content: '';
-   position: absolute;
-   inset: 0;
-   background: rgba(76, 175, 80, 0.48);
-   opacity: 0;
-   transform: scale(.92);
-   animation: unitFlash 2.6s ease-out forwards;
-   animation-delay: var(--delay, 0ms);
- }
-
- .win-badge {
-   position: absolute;
-   top: 8px;
-   right: 8px;
-   z-index: 10000;
-   background: rgba(76, 175, 80, 0.95);
-   color: #fff;
-   font-weight: 700;
-   border-radius: 999px;
-   padding: 6px 10px;
-   font-size: 12px;
-   letter-spacing: .3px;
-   box-shadow: 0 4px 12px rgba(76, 175, 80, .35);
-   opacity: 0;
-   transform: translateY(-6px) scale(.98);
-   animation: badgePop .6s ease-out forwards .08s, badgeFade 7.2s ease-in forwards .9s;
- }
-
- .confetti {
-   position: absolute;
-   inset: 0;
-   pointer-events: none;
-   z-index: 10000;
- }
-
- .confetti i {
-   --count: 18;
-   --h: calc(var(--oy, 50%));
-   /* uses the same origin vars as ripple */
-   --w: calc(var(--ox, 50%));
-   position: absolute;
-   top: var(--h);
-   left: var(--w);
-   width: 6px;
-   height: 10px;
-   border-radius: 1px;
-   opacity: 0;
-   animation: confettiPop 900ms ease-out forwards;
-   /* disperse by index */
-   transform: translate(-50%, -50%) rotate(calc(var(--i) * 20deg));
- }
-
- /* simple color cycle via nth-child */
- .confetti i:nth-child(3n+1) {
-   background: #66bb6a;
- }
-
- .confetti i:nth-child(3n+2) {
-   background: #81c784;
- }
-
- .confetti i:nth-child(3n+3) {
-   background: #a5d6a7;
- }
-
- /* Optional: while any flash is active, slightly dim the base hl to avoid clash */
- .flash-active .cell.hl-row,
- .flash-active .cell.hl-col,
- .flash-active .cell.hl-box {
-   background: rgba(25, 118, 210, .04);
- }
-
- /* Full puzzle completion ripple from --ox/--oy */
- .board.win::before {
-   content: '';
-   position: absolute;
-   inset: 0;
-   pointer-events: none;
-   background: radial-gradient(circle at var(--ox, 50%) var(--oy, 50%),
-       rgba(76, 175, 80, 0.28) 0%,
-       rgba(76, 175, 80, 0.22) 12%,
-       rgba(76, 175, 80, 0.12) 28%,
-       rgba(76, 175, 80, 0.00) 60%);
-   opacity: 0;
-   animation: winRipple 900ms ease-out forwards;
-   z-index: 9999;
- }
-
- /* while the win ripple runs, suppress unit flashes completely */
- .board.win .cell.unit-flash::after {
-   animation: none !important;
-   opacity: 0 !important;
- }
-
- .points-layer {
-   position: absolute;
-   inset: 0;
-   pointer-events: none;
-   z-index: 4000;
-   /* above cells/selection/flash */
- }
-
- /* Points popup inside a cell (+95 / -50) */
- .points-f {
-   position: absolute;
-   top: calc(var(--row) * var(--cell) + 2px);
-   /* just inside cell top */
-   left: calc((var(--col) + 0.5) * var(--cell));
-   transform: translate(-50%, 0) scale(.94);
-   font-size: calc(var(--cell) * 0.40);
-   font-weight: 700;
-   color: rgba(25, 118, 210, .96);
-   /* theme-ish blue for positive */
-   text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
-   opacity: 0;
-   animation: floatUpBoard 700ms ease-out forwards;
- }
-
- .points-f.neg {
-   color: rgba(211, 47, 47, 1);
- }
-
- .board.review .cell {
-   pointer-events: none;
- }
-
- .board.review .cell .val {
-   /* optional subtle cue */
-   filter: saturate(.9);
- }
-
- @keyframes floatUpBoard {
-   0% {
-     opacity: 0;
-     transform: translate(-50%, 10px) scale(.94);
-   }
-
-   18% {
-     opacity: 1;
-     transform: translate(-50%, 0px) scale(1.10);
-   }
-
-   100% {
-     opacity: 0;
-     transform: translate(-50%, -28px) scale(1.22);
-   }
- }
-
- @keyframes valReveal {
-   to {
-     opacity: 1;
-     transform: none;
-   }
- }
-
- @keyframes unitFlash {
-   10% {
-     opacity: .95;
-   }
-
-   50% {
-     opacity: .6;
-     transform: scale(1.00);
-   }
-
-   100% {
-     opacity: 0;
-     transform: scale(1.00);
-   }
- }
-
- @keyframes badgePop {
-   to {
-     opacity: 1;
-     transform: none;
-   }
- }
-
- @keyframes badgeFade {
-   to {
-     opacity: 0;
-   }
- }
-
- @keyframes winRipple {
-   0% {
-     opacity: 0;
-     transform: scale(0.85);
-   }
-
-   12% {
-     opacity: .95;
-     transform: scale(1.00);
-   }
-
-   60% {
-     opacity: .55;
-   }
-
-   100% {
-     opacity: 0;
-     transform: scale(1.08);
-   }
- }
-
- /* radial throw with slight randomness using the index */
- @keyframes confettiPop {
-   0% {
-     opacity: 0;
-     transform: translate(-50%, -50%) scale(.6) rotate(0deg);
-   }
-
-   10% {
-     opacity: 1;
-   }
-
-   60% {
-     opacity: .85;
-   }
-
-   100% {
-     opacity: 0;
-     transform:
-       translate(calc(-50% + (cos(var(--i)*20deg) * 160px)),
-         calc(-50% + (sin(var(--i)*20deg) * 160px))) rotate(360deg) scale(1);
-   }
- }
+:host {
+  --cell: clamp(36px, 9.8vw, 56px);
+  --label: 18px;
+  --gap: 4px;
+  display: block;
+}
+
+@media (max-width: 599px) {
+  :host {
+    --cell: clamp(33px, 10.2vw, 50px);
+    --label: 12px;
+    --gap: 2px;
+  }
+
+  .board-outer {
+    max-width: 100%;
+    overflow: hidden;
+  }
+}
+
+/* === Layout wrappers === */
+.board-outer {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Busy overlay */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 2;
+  text-align: center;
+  pointer-events: all;
+  /* consume clicks while busy */
+}
+
+.loading-overlay .txt {
+  font-size: 14px;
+  color: rgba(0, 0, 0, .7);
+}
+
+.board-outer:has(.loading-overlay) .board {
+  filter: grayscale(0.2) opacity(0.7);
+}
+
+/* Axis labels (hidden in fullscreen) */
+.col-labels {
+  display: grid;
+  grid-template-columns: calc(var(--label) + var(--gap)) repeat(9, var(--cell));
+  margin-bottom: var(--gap);
+}
+
+.col-label {
+  display: grid;
+  place-items: center;
+  height: var(--label);
+  line-height: 1;
+}
+
+.corner {
+  width: calc(var(--label) + var(--gap));
+}
+
+.row {
+  display: flex;
+}
+
+.row-labels {
+  display: grid;
+  grid-auto-rows: var(--cell);
+  width: calc(var(--label) + var(--gap));
+  margin-right: var(--gap);
+}
+
+.row-label {
+  display: grid;
+  place-items: center;
+  height: var(--cell);
+}
+
+/* === Board canvas === */
+.board {
+  position: relative;
+  overflow: visible;
+  /* keep floaters visible near edges */
+  width: min(calc(9 * var(--cell)), 100%);
+  margin-inline: auto;
+}
+
+/* === Cell & content === */
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, .25);
+  background: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: calc(var(--cell) * 0.44);
+  line-height: 1;
+  position: relative;
+  box-sizing: border-box;
+  contain: size layout paint;
+  /* isolates layout; inner changes don’t reflow the row */
+}
+
+.cell .val {
+  font-weight: 500;
+  font-size: calc(var(--cell) * 0.52);
+}
+
+.pencil {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+  font-size: calc(var(--cell) * 0.28);
+  color: rgba(0, 0, 0, .38);
+  padding: 0;
+}
+
+.p {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0;
+  border-radius: 2px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.p.on {
+  opacity: 1;
+  padding: 1px;
+}
+
+.p.cand-match {
+  background: rgba(25, 118, 210, .45);
+  color: rgba(0, 0, 0, .85);
+  font-weight: 600;
+}
+
+.p.cand-hint {
+  background: rgba(255, 193, 7, .35) !important;
+  color: rgba(0, 0, 0, .95);
+  font-weight: 700;
+}
+
+/* Thick box borders */
+.board .grid .row:nth-child(3n+1) .cell {
+  border-top-width: 2px;
+  border-top-color: rgba(0, 0, 0, .5);
+}
+
+.board .grid .row .cell:nth-child(3n+1) {
+  border-left-width: 2px;
+  border-left-color: rgba(0, 0, 0, .5);
+}
+
+.board .grid .row:nth-child(9) .cell {
+  border-bottom-width: 2px;
+  border-bottom-color: rgba(0, 0, 0, .5);
+}
+
+.board .grid .row .cell:nth-child(9) {
+  border-right-width: 2px;
+  border-right-color: rgba(0, 0, 0, .5);
+}
+
+/* Values origin styling */
+.cell.given .val {
+  font-weight: 700;
+  color: rgba(0, 0, 0, .87);
+}
+
+.cell.user .val {
+  color: var(--mat-mdc-slide-toggle-selected-handle-color, #3f51b5);
+}
+
+/* Selection & highlighting */
+.cell.selected {
+  outline: 2px solid rgba(25, 118, 210, .9);
+  outline-offset: -2px;
+}
+
+.cell.hl-row,
+.cell.hl-col,
+.cell.hl-box {
+  background: rgba(25, 118, 210, .08);
+}
+
+.cell.hl-row.hl-col,
+.cell.hl-row.hl-box,
+.cell.hl-col.hl-box {
+  background: rgba(25, 118, 210, .14);
+}
+
+/* Hint overlays */
+.board .cell.hint-row,
+.board .cell.hint-col,
+.board .cell.hint-box {
+  background: rgba(255, 193, 7, .18) !important;
+}
+
+.board .cell.hint-target {
+  box-shadow: inset 0 0 0 3px rgba(255, 193, 7, .95) !important;
+}
+
+/* NEW: highlight all cells whose value matches the active value */
+.cell.match:not(.selected):not(.conflict):not(.error) {
+  box-shadow: inset 0 0 0 2px rgba(25, 118, 210, .8);
+  background: rgba(25, 118, 210, .10);
+}
+
+/* Conflicts & solution errors */
+.cell.conflict {
+  box-shadow: inset 0 0 0 2px rgba(211, 47, 47, .9);
+}
+
+.cell.conflict .val {
+  color: rgba(211, 47, 47, 1);
+}
+
+.cell.error {
+  box-shadow: inset 0 0 0 2px rgba(211, 47, 47, .9);
+}
+
+.cell.error .val {
+  color: rgba(211, 47, 47, 1);
+  font-weight: 700;
+}
+
+/* Given cells locked (not in given-editing mode) */
+.cell.readonly {
+  background: #f5f5f5;
+  cursor: default;
+}
+
+.cell.readonly .val {
+  color: rgba(0, 0, 0, .7);
+  font-weight: 700;
+}
+
+/* Ensure givens still show row/col/box highlights */
+.cell.readonly.hl-row,
+.cell.readonly.hl-col,
+.cell.readonly.hl-box {
+  background: rgba(25, 118, 210, .08);
+}
+
+.cell.readonly.hl-row.hl-col,
+.cell.readonly.hl-row.hl-box,
+.cell.readonly.hl-col.hl-box {
+  background: rgba(25, 118, 210, .14);
+}
+
+/* Slightly dim base highlights while unit flash is running */
+.flash-active .cell.hl-row,
+.flash-active .cell.hl-col,
+.flash-active .cell.hl-box {
+  background: rgba(25, 118, 210, .04);
+}
+
+/* === Reveal/flash/win effects === */
+.board.reveal .val {
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: valReveal .42s ease-out forwards;
+  animation-delay: calc(var(--r) * 80ms);
+  /* top→bottom */
+}
+
+.cell.unit-flash {
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+}
+
+.cell.unit-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(76, 175, 80, 0.48);
+  opacity: 0;
+  transform: scale(.92);
+  animation: unitFlash 2.6s ease-out forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* Win badge + confetti */
+.win-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10000;
+  background: rgba(76, 175, 80, 0.95);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  letter-spacing: .3px;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, .35);
+  opacity: 0;
+  transform: translateY(-6px) scale(.98);
+  animation: badgePop .6s ease-out forwards .08s, badgeFade 7.2s ease-in forwards .9s;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.confetti i {
+  --count: 18;
+  --h: calc(var(--oy, 50%));
+  /* same origin vars as ripple */
+  --w: calc(var(--ox, 50%));
+  position: absolute;
+  top: var(--h);
+  left: var(--w);
+  width: 6px;
+  height: 10px;
+  border-radius: 1px;
+  opacity: 0;
+  animation: confettiPop 900ms ease-out forwards;
+  transform: translate(-50%, -50%) rotate(calc(var(--i) * 20deg));
+}
+
+.confetti i:nth-child(3n+1) {
+  background: #66bb6a;
+}
+
+.confetti i:nth-child(3n+2) {
+  background: #81c784;
+}
+
+.confetti i:nth-child(3n+3) {
+  background: #a5d6a7;
+}
+
+/* Full puzzle completion ripple */
+.board.win::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--ox, 50%) var(--oy, 50%),
+      rgba(76, 175, 80, 0.28) 0%,
+      rgba(76, 175, 80, 0.22) 12%,
+      rgba(76, 175, 80, 0.12) 28%,
+      rgba(76, 175, 80, 0.00) 60%);
+  opacity: 0;
+  animation: winRipple 900ms ease-out forwards;
+  z-index: 9999;
+}
+
+/* while the win ripple runs, suppress unit flashes */
+.board.win .cell.unit-flash::after {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
+/* Points (+95 / -50) */
+.points-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4000;
+  /* above cells/selection/flash */
+}
+
+.points-f {
+  position: absolute;
+  top: calc(var(--row) * var(--cell) + 2px);
+  /* just inside cell top */
+  left: calc((var(--col) + 0.5) * var(--cell));
+  transform: translate(-50%, 0) scale(.94);
+  font-size: calc(var(--cell) * 0.40);
+  font-weight: 700;
+  color: rgba(25, 118, 210, .96);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+  opacity: 0;
+  animation: floatUpBoard 700ms ease-out forwards;
+}
+
+.points-f.neg {
+  color: rgba(211, 47, 47, 1);
+}
+
+/* Review mode (read-only interactions already handled in template) */
+.board.review .cell {
+  pointer-events: none;
+}
+
+.board.review .cell .val {
+  filter: saturate(.9);
+}
+
+/* === Animations === */
+@keyframes floatUpBoard {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(.94);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translate(-50%, 0px) scale(1.10);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -28px) scale(1.22);
+  }
+}
+
+@keyframes valReveal {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes unitFlash {
+  10% {
+    opacity: .95;
+  }
+
+  50% {
+    opacity: .6;
+    transform: scale(1.00);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.00);
+  }
+}
+
+@keyframes badgePop {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes badgeFade {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes winRipple {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+
+  12% {
+    opacity: .95;
+    transform: scale(1.00);
+  }
+
+  60% {
+    opacity: .55;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+/* radial throw with slight randomness using the index */
+@keyframes confettiPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.6) rotate(0deg);
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: .85;
+  }
+
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + (cos(var(--i)*20deg) * 160px)),
+        calc(-50% + (sin(var(--i)*20deg) * 160px))) rotate(360deg) scale(1);
+  }
+}

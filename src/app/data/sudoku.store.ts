@@ -561,6 +561,8 @@ export class SudokuStore {
     this._autoFilling.set(false);
     this.recomputeCandidates();
     this.computeSolutionFromGivens();
+    this._rating.set(null);
+    this.rateCurrentBoard();
     this.startTimer(5000);
   }
 
@@ -1227,7 +1229,10 @@ export class SudokuStore {
   }
 
   private captureSolvedStats() {
-    const bucket: Bucket = this._rating()?.bucket ?? 'easy';
+    const ensuredRating = this._rating() ?? ratePuzzle(this._board());
+    if (!this._rating()) this._rating.set(ensuredRating);
+
+    const bucket: Bucket = ensuredRating.bucket;
     const timeMs = this._timerSec() * 1000;
     const score = this._scoreRaw();
     const mistakes = this._mistakes();
