@@ -1,0 +1,17 @@
+<div class="settings">
+  <h1>Settings</h1>
+
+  <section class="card">
+    <div class="row">
+      <div class="meta">
+        <div class="title">Dark mode</div>
+        <div class="sub">Use a darker theme that’s easier on the eyes at night.</div>
+      </div>
+      <mat-slide-toggle
+        [checked]="dark"
+        (change)="onToggle($event.checked!)"
+        aria-label="Toggle dark mode"
+      >Dark</mat-slide-toggle>
+    </div>
+  </section>
+</div>

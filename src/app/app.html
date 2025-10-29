@@ -4,128 +4,74 @@
 >
   <span class="brand">Sudoku Solver</span>
   <span class="spacer"></span>
-  <a
-    mat-button
-    routerLink="/home"
-  >Home</a>
-  <a
-    mat-button
-    routerLink="/play"
-  >Play</a>
+
+  <!-- menu toggle on the right -->
+  <button
+    mat-icon-button
+    class="menu-toggle"
+    aria-label="Open menu"
+    (click)="menuOpen = true"
+  >
+    <mat-icon>menu</mat-icon>
+  </button>
 </mat-toolbar>
+
+<!-- Slide-out menu (50% width) -->
+<div
+  class="menu-sheet"
+  [class.open]="menuOpen"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Main menu"
+  (keydown.escape)="menuOpen = false"
+>
+  <!-- dim/close area -->
+  <button
+    class="menu-backdrop"
+    aria-label="Close menu"
+    (click)="menuOpen = false"
+  ></button>
+
+  <!-- frosted panel -->
+  <nav class="menu-panel">
+    <div class="menu-header">
+      <span class="title">Menu</span>
+      <button
+        mat-icon-button
+        aria-label="Close menu"
+        (click)="menuOpen = false"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <a
+      routerLink="/home"
+      (click)="menuOpen = false"
+      class="menu-link"
+    >
+      <mat-icon>home</mat-icon>
+      <span>Home</span>
+    </a>
+
+    <a
+      routerLink="/play"
+      (click)="menuOpen = false"
+      class="menu-link"
+    >
+      <mat-icon>sports_esports</mat-icon>
+      <span>Play</span>
+    </a>
+
+    <a
+      routerLink="/settings"
+      (click)="menuOpen = false"
+      class="menu-link"
+    >
+      <mat-icon>settings</mat-icon>
+      <span>Settings</span>
+    </a>
+  </nav>
+</div>
 
 <router-outlet></router-outlet>
-
-<!-- <mat-toolbar
-  color="primary"
-  class="topbar"
->
-  <span class="brand">Sudoku Solver</span>
-  <span class="spacer"></span>
-
-  <div class="bar-controls hide-sm">
-    <button
-      mat-button
-      (click)="openHint()"
-    ><mat-icon>lightbulb</mat-icon> Hint</button>
-    <button
-      mat-button
-      (click)="openImport()"
-    ><mat-icon>file_upload</mat-icon> Import</button> -->
-
-<!-- NEW: Import Image -->
-<!-- <button
-      mat-button
-      (click)="openImportImage()"
-    ><mat-icon>photo_camera</mat-icon> Photo</button>
-
-    <button
-      mat-button
-      (click)="store.resetPencils()"
-    ><mat-icon>layers_clear</mat-icon> Reset pencils</button>
-    <mat-slide-toggle
-      [checked]="store.pencilMode()"
-      (change)="store.togglePencilMode()"
-    >Pencil</mat-slide-toggle>
-    <mat-slide-toggle
-      [checked]="store.editingGivenMode()"
-      (change)="store.toggleEditingGivenMode()"
-    >Initial</mat-slide-toggle>
-    <mat-slide-toggle
-      [checked]="store.fullScreenBoard()"
-      (change)="store.toggleFullScreenBoard()"
-    >Full screen</mat-slide-toggle>
-    <button
-      mat-button
-      (click)="store.resetBoard()"
-    ><mat-icon>restart_alt</mat-icon> Reset</button>
-    <button
-      mat-button
-      (click)="openNewPuzzle()"
-      [disabled]="store.busy()"
-    ><mat-icon>auto_awesome</mat-icon> New puzzle…</button>
-  </div> -->
-
-<!-- mobile overflow menu: add Photo -->
-<!-- <div class="bar-controls show-sm">
-    <button
-      mat-icon-button
-      matTooltip="Hint"
-      (click)="openHint()"
-    ><mat-icon>lightbulb</mat-icon></button>
-    <button
-      mat-icon-button
-      matTooltip="Pencil"
-      [class.on]="store.pencilMode()"
-      (click)="store.togglePencilMode()"
-    ><mat-icon>edit_note</mat-icon></button>
-    <button
-      mat-icon-button
-      matTooltip="Initial"
-      [class.on]="store.editingGivenMode()"
-      (click)="store.toggleEditingGivenMode()"
-    ><mat-icon>flag</mat-icon></button>
-    <button
-      mat-icon-button
-      [matMenuTriggerFor]="more"
-    ><mat-icon>more_vert</mat-icon></button>
-    <mat-menu #more="matMenu">
-      <button
-        mat-menu-item
-        (click)="openImport()"
-      ><mat-icon>file_upload</mat-icon><span>Import</span></button>
-      <button
-        mat-menu-item
-        (click)="openImportImage()"
-      ><mat-icon>photo_camera</mat-icon><span>Import photo</span></button>
-      <button
-        mat-menu-item
-        (click)="store.resetPencils()"
-      ><mat-icon>layers_clear</mat-icon><span>Reset pencils</span></button>
-      <button
-        mat-menu-item
-        (click)="store.toggleFullScreenBoard()"
-      >
-        <mat-icon>{{ store.fullScreenBoard() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
-        <span>{{ store.fullScreenBoard() ? 'Exit full screen' : 'Full screen board' }}</span>
-      </button>
-      <button
-        mat-menu-item
-        (click)="store.resetBoard()"
-      ><mat-icon>restart_alt</mat-icon><span>Reset board</span></button>
-      <button
-        mat-menu-item
-        (click)="openNewPuzzle()"
-        [disabled]="store.busy()"
-      >
-        <mat-icon>auto_awesome</mat-icon><span>New puzzle…</span>
-      </button>
-    </mat-menu>
-  </div>
-</mat-toolbar>
-
-<div class="container center">
-  <app-board></app-board>
-  <app-number-pad class="pad-sticky"></app-number-pad>
-  <div class="tips">Tip: better results with flat, bright photos.</div>
-</div> -->

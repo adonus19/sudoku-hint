@@ -9,6 +9,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
+import { MatSidenavModule } from '@angular/material/sidenav';
 
 import { SudokuStore } from './data/sudoku.store';
 import { ImportDialog } from './components/import-dialog/import-dialog';
@@ -21,7 +22,7 @@ import { Difficulty, NewPuzzleDialog, Symmetry } from './components/new-puzzle-d
 @Component({
   selector: 'app-root',
   imports: [RouterModule, MatToolbarModule, MatButtonModule, MatIconModule, MatSlideToggleModule, MatDialogModule,
-    MatMenuModule, MatTooltipModule, MatBottomSheetModule],
+    MatMenuModule, MatTooltipModule, MatBottomSheetModule, MatSidenavModule],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -31,6 +32,8 @@ export class App {
   #sheet = inject(MatBottomSheet);
   #hints = inject(HintService);
   #bp = inject(BreakpointObserver);
+
+  menuOpen = false;
 
   openImport() {
     this.#dialog.open(ImportDialog, { width: '520px' });

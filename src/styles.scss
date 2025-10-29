@@ -5,35 +5,34 @@
 // custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
-html {
-  @include mat.theme((color: (primary: mat.$cyan-palette,
-        accent: mat.$orange-palette,
-        warn: mat.$red-palette,
-      ),
-      typography: Roboto,
-      density: 0,
+/* Define light & dark themes once */
+$light-theme: mat.define-theme((color: (theme-type: light,
+        primary: mat.$cyan-palette,
+        tertiary: mat.$orange-palette )));
+
+$dark-theme: mat.define-theme((color: (theme-type: dark,
+        primary: mat.$cyan-palette,
+        tertiary: mat.$orange-palette ),
     ));
+
+/* Default: light */
+html {
+  @include mat.all-component-themes($light-theme);
 }
 
-body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
-  color-scheme: light;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
-  margin: 0;
+/* Enable dark mode by adding .dark on <html> (Settings page will toggle this) */
+html.dark {
+  @include mat.all-component-themes($dark-theme);
 }
 
-/* You can add global styles to this file, and also import other style files */
+/* Optional: honor system dark when no explicit class is set */
+@media (prefers-color-scheme: dark) {
+  html:not(.dark):not(.light) {
+    @include mat.all-component-themes($dark-theme);
+  }
+}
 
+/* System palette plumbing */
 html,
 body {
   height: 100%;
@@ -41,17 +40,24 @@ body {
 
 body {
   margin: 0;
+  color-scheme: light;
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
+html.dark body {
+  color-scheme: dark;
+}
+
+/* --- your existing utility styles stay as-is --- */
 .hint-dialog-floating {
   box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
   border-radius: 8px;
   pointer-events: auto;
-  /* allow interaction */
 }
 
-/* Make hint overlays more apparent */
 .app-hint-amber {
   background: rgba(255, 193, 7, .12) !important;
 }
@@ -60,7 +66,6 @@ body {
   box-shadow: inset 0 0 0 3px rgba(255, 193, 7, .95) !important;
 }
 
-/* Optional: slightly increase general highlight contrast */
 .app-hl-blue {
   background: rgba(25, 118, 210, .10) !important;
 }
@@ -69,13 +74,6 @@ body {
   background: rgba(25, 118, 210, .16) !important;
 }
 
-.hint-dialog-floating {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-  border-radius: 8px;
-  pointer-events: auto;
-}
-
-/* Keep toolbar compact on small screens */
 @media (max-width: 599px) {
 
   .mat-toolbar-row,
@@ -90,9 +88,7 @@ body {
 
 .photo-dialog .mat-mdc-dialog-content {
   padding: 16px 16px 0;
-  /* breathing room left/right */
   max-height: calc(92vh - 64px);
-  /* keep footer visible */
   overflow: auto;
 }
 
@@ -104,36 +100,17 @@ body {
   z-index: 12000 !important;
 }
 
-// .pause-backdrop {
-//   background: rgba(0, 0, 0, .55) !important;
-// }
-
-// .glass-backdrop {
-//   background: rgba(15, 23, 42, 0.35);
-//   /* slate-ish w/ alpha */
-//   // backdrop-filter: blur(12px) saturate(110%);
-//   // -webkit-backdrop-filter: blur(12px) saturate(110%);
-//   /* iOS Safari */
-// }
-
-/* “Frosted” dialog surface */
 .frosted-dialog .mat-mdc-dialog-surface {
   background: rgba(255, 255, 255, 0.65);
-  /* semi-opaque glass */
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.45);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
   overflow: hidden;
-}
-
-/* Optional: round the dialog a bit for the iOS vibe */
-.frosted-dialog .mat-mdc-dialog-surface {
   border-radius: 16px;
 }
 
-/* Optional fallback for browsers without backdrop-filter:
-   while paused, also blur the board itself. */
+/* Optional fallback: blur board while paused */
 body.paused .board {
   filter: blur(8px) saturate(90%);
   pointer-events: none;

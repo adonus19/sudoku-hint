@@ -1,5 +1,8 @@
 .topbar {
   display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .brand {
@@ -10,73 +13,126 @@
   flex: 1 1 auto;
 }
 
-// .topbar {
-//   position: sticky;
-//   top: 0;
-//   z-index: 10;
-// }
+.menu-toggle {
+  /* bigger touch target on mobile */
+  width: 48px;
+  height: 48px;
+}
 
-// .brand {
-//   font-weight: 600;
-// }
+/* ===== Slide-out sheet ===== */
+.menu-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+  overflow: hidden;
+  /* disabled until open */
+}
 
-// .spacer {
-//   flex: 1 1 auto;
-// }
+.menu-sheet.open {
+  pointer-events: auto;
+}
 
-// .bar-controls {
-//   display: inline-flex;
-//   align-items: center;
-//   gap: 8px;
-// }
+/* backdrop that dims the page and captures clicks */
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.34);
+  opacity: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  transition: opacity 200ms ease;
+}
 
-// .bar-controls .on {
-//   outline: 2px solid rgba(255, 255, 255, .85);
-//   outline-offset: -2px;
-//   border-radius: 8px;
-// }
+.menu-sheet.open .menu-backdrop {
+  opacity: 1;
+}
 
-// .container {
-//   max-width: 960px;
-//   margin: 12px auto;
-//   padding: 0 12px;
-// }
+/* frosted, sliding panel */
+.menu-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 50vw;
+  /* <= your request: 50% of screen */
+  max-width: 480px;
+  min-width: 280px;
 
-// .center {
-//   display: flex;
-//   flex-direction: column;
-//   align-items: center;
-// }
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
 
-// /* NEW: horizontal centering */
+  /* Frosted surface (same vibe as .frosted-dialog) */
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0.82),
+      rgba(255, 255, 255, 0.72));
 
-// .hide-sm {
-//   display: inline-flex;
-// }
+  backdrop-filter: blur(8px) saturate(1.2) brightness(1.02);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2) brightness(1.02);
+  border-left: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+  overflow: auto;
 
-// .show-sm {
-//   display: none;
-// }
+  transform: translateX(110%);
+  transition: transform 260ms cubic-bezier(.2, .8, .2, 1);
+  will-change: transform;
+  contain: paint;
+}
 
-// @media (max-width: 599px) {
-//   .hide-sm {
-//     display: none;
-//   }
+.menu-sheet.open .menu-panel {
+  transform: translateX(0);
+}
 
-//   .show-sm {
-//     display: inline-flex;
-//     gap: 4px;
-//   }
+/* Dark-mode frosted variant */
+html.dark .menu-panel {
+  background: rgba(15, 23, 42, 0.55);
+  /* slate-ish */
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
 
-//   .container {
-//     max-width: 100%;
-//     margin: 8px auto;
-//     padding: 0 8px;
-//   }
-// }
+/* header row inside sheet */
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 8px;
+}
 
-// .pad-sticky {
-//   position: sticky;
-//   bottom: 8px;
-//   display: block;
-// }
+.menu-header .title {
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+/* links */
+.menu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  margin: 2px 0;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--mat-sys-on-surface);
+  font-weight: 600;
+}
+
+.menu-link:hover,
+.menu-link:focus-visible {
+  background: rgba(0, 0, 0, 0.06);
+  outline: none;
+}
+
+html.dark .menu-link:hover,
+html.dark .menu-link:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menu-link mat-icon {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}

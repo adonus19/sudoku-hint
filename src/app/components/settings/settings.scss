@@ -1,0 +1,43 @@
+.settings {
+  max-width: 640px;
+  margin: 16px auto;
+  padding: 16px;
+}
+
+h1 {
+  margin: 4px 0 12px;
+  font: var(--mat-sys-title-large);
+}
+
+.card {
+  background: color-mix(in oklab, var(--mat-sys-surface) 92%, var(--mat-sys-primary) 8%);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .10);
+}
+
+html.dark .card {
+  background: color-mix(in oklab, var(--mat-sys-surface) 85%, var(--mat-sys-primary) 15%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .40);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.meta .title {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.meta .sub {
+  font-size: 12px;
+  color: rgba(0, 0, 0, .62);
+}
+
+html.dark .meta .sub {
+  color: rgba(255, 255, 255, .72);
+}
