@@ -198,7 +198,7 @@ export class SudokuStore {
     !this._autoFillDismissed()
   );
 
-  canFullAutoSolve = computed(() => this._origin() !== 'generated' && !this._editingGivenMode());
+  canFullAutoSolve = computed(() => this._origin() !== 'generated' && !this._editingGivenMode() && !this._editingGivenMode() && !this._reviewMode());
 
   scoreBump = computed(() => this._scoreBumping());
   floaters = this._floaters.asReadonly();
@@ -380,7 +380,7 @@ export class SudokuStore {
       if (sol && value === sol[r][c]) {
         // CORRECT: score (once), show floater, clear undo history
         if (!this._scored.has(key)) {
-          const pts = Math.round(this.basePointsNow() * this.multiplier(this._currentDifficulty()));
+          const pts = Math.round(this.basePointsNow() * this.multiplier(this.effectiveDifficulty()));
           this._scored.add(key);
           this.showFloater(r, c, `+${pts}`);
           setTimeout(() => this.applyScoreDelta(pts), 600);
@@ -398,7 +398,7 @@ export class SudokuStore {
         }
       } else {
         // WRONG: penalty, floater, and push undo of the wrong placement
-        const pen = Math.round((this.basePointsNow() * this.multiplier(this._currentDifficulty())) / 2);
+        const pen = Math.round((this.basePointsNow() * this.multiplier(this.effectiveDifficulty())) / 2);
         const delta = -pen;
         this._mistakes.update(n => n + 1);
         this._mistakePoints.update(p => p + pen);
@@ -1146,15 +1146,19 @@ export class SudokuStore {
   }
 
   private multiplier(d: Difficulty): number {
-    if (d === 'medium') return 1.5;
-    if (d === 'hard') return 2.0;
-    if (d === 'expert') return 3.0;
+    if (d === 'medium') return 2.0;
+    if (d === 'hard') return 4.0;
+    if (d === 'expert') return 7.0;
     return 1.0; // easy
   }
 
   private basePointsNow(): number {
     // 100 - 1pt per 2s, floored at 25
-    return Math.max(25, 100 - Math.floor(this._timerSec() / 2));
+    const d = this.effectiveDifficulty();
+    const secondsPerPoint = this.decaySecondsPerPoint(d);
+    const elapsed = this._timerSec();
+    const dec = Math.floor(elapsed / secondsPerPoint);
+    return Math.max(25, 100 - dec);
   }
 
   private animateScoreTo(target: number) {
@@ -1440,5 +1444,18 @@ export class SudokuStore {
     this._activeKey.set(null);
     this._activeStore.active = null;
     this.saveActiveStore();
+  }
+
+  private effectiveDifficulty(): Difficulty {
+    return (this._rating()?.bucket ?? this._currentDifficulty()) as Difficulty;
+  }
+
+  private decaySecondsPerPoint(d: Difficulty): number {
+    switch (d) {
+      case 'medium': return 2.5;
+      case 'hard': return 4;
+      case 'expert': return 6;
+      default: return 2;
+    }
   }
 }
